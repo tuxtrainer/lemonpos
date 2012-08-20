@@ -1,22 +1,22 @@
 /**************************************************************************
- *   Copyright © 2007-2011 by Miguel Chavez Gamboa                         *
- *   miguel@lemonpos.org                                                   *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
- ***************************************************************************/
+*   Copyright © 2007-2010 by Miguel Chavez Gamboa                         *
+*   miguel@lemonpos.org                                                   *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
+**************************************************************************/
 #include <KLocale>
 #include <KMessageBox>
 #include <KFileDialog>
@@ -41,15 +41,14 @@ PromoEditor::PromoEditor( QWidget *parent )
     setButtons( KDialog::Ok|KDialog::Cancel );
 
     // BFB: New spinboxPrice: I've created new slots to control when discount, price or product are changed
-    connect( ui->spinboxDiscount, SIGNAL(valueChanged(double)),this, SLOT(discountChanged()) );
-    connect( ui->spinboxPrice, SIGNAL(/*editingFinished*/valueChanged(double)),this, SLOT(priceChanged()) );
+    connect( ui->spinboxDiscount, SIGNAL(editingFinished()),this, SLOT(discountChanged()) );
+    connect( ui->spinboxPrice, SIGNAL(editingFinished()),this, SLOT(priceChanged()) );
     connect(ui->offersDatepickerStart, SIGNAL(dateChanged(const QDate & )), this, SLOT(checkValid()));
     connect(ui->offersDatepickerEnd, SIGNAL(dateChanged(const QDate & )), this, SLOT(checkValid()));
     connect(ui->productsList, SIGNAL(clicked(const QModelIndex &)), this, SLOT(productChanged()));
     connect(ui->productsList, SIGNAL(activated(const QModelIndex &)), this, SLOT(productChanged()));
     connect(ui->productsList, SIGNAL(entered(const QModelIndex &)), this, SLOT(productChanged()));
 
-    enableButtonOk(false);
     QTimer::singleShot(750, this, SLOT(checkValid()));
 }
 
@@ -144,14 +143,10 @@ void PromoEditor::priceChanged()
 
 void PromoEditor::checkValid()
 {
-  bool validAmount = ui->spinboxDiscount->value() > 0.0 ? true : false;
-  bool validDate   = ((getDateStart() < getDateEnd()) && (getDateEnd() > QDate::currentDate())) ? true : false;
-  bool valid = isProductSelected() && validAmount && validDate;
-
-  qDebug()<<"Valid Amount:"<<validAmount<<" Valid Date:"<<validDate<<" finally is valid="<<valid;
-  
-  enableButtonOk(valid);
-    
+  qDebug()<<"Selected Product Code:"<<getSelectedProductCode();
+  if ((isProductSelected()) && ((ui->spinboxDiscount->value() > 0.0) || (ui->spinboxPrice->value() > 0.0)) && (getDateStart() < getDateEnd()) && (getDateStart() >= QDate::currentDate()) )
+    enableButtonOk(true);
+  else enableButtonOk(false);
 }
 
 bool PromoEditor::isProductSelected()

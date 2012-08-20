@@ -1,22 +1,22 @@
 /**************************************************************************
- *   Copyright © 2007-2012 by Miguel Chavez Gamboa                         *
- *   miguel@lemonpos.org                                                   *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
- ***************************************************************************/
+*   Copyright © 2007-2010 by Miguel Chavez Gamboa                         *
+*   miguel@lemonpos.org                                                   *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
+**************************************************************************/
 
 #define QT_GUI_LIB
 //The above line is because that define is needed, and as i dont use qmake, i must define it here..
@@ -25,11 +25,13 @@
 #include "squeezeview.h"
 #include "settings.h"
 #include "usersdelegate.h"
+#include "clientsdelegate.h"
 #include "usereditor.h"
-#include "clienteditor.h"
+#include "../../common/clienteditor.h"
 #include "promoeditor.h"
 #include "producteditor.h"
 #include "purchaseeditor.h"
+#include "providerseditor.h"
 #include "../../src/hash.h"
 #include "../../src/misc.h"
 #include "../../src/structs.h"
@@ -39,7 +41,6 @@
 #include "../../dataAccess/azahar.h"
 #include "../../src/inputdialog.h"
 #include "../../mibitWidgets/mibitfloatpanel.h"
-#include "../../mibitWidgets/mibitnotifier.h"
 #include "../../printing/print-dev.h"
 #include "../../printing/print-cups.h"
 
@@ -59,7 +60,6 @@
 #include <QSqlRelationalDelegate>
 #include <QItemDelegate>
 #include <QHeaderView>
-#include <QDir>
 
 #include <klocale.h>
 #include <kfiledialog.h>
@@ -79,11 +79,12 @@
 //TODO: Change all qDebug to errorDialogs or remove them.
 //NOTE: Common configuration fields need to be shared between lemon and squeeze (low stock alarm value).
 
-enum {pWelcome=0, pBrowseProduct=1, pBrowseOffers=2, pBrowseUsers=3, pBrowseMeasures=4, pBrowseCategories=5, pBrowseClients=6, pBrowseRandomMessages=7, pBrowseLogs=8, pBrowseSO=9, pReports=10, pBrowseCurrencies=11, pBrowseReservations=12};
+enum {pWelcome=0, pBrowseProduct=1, pBrowseOffers=2, pBrowseUsers=3, pBrowseMeasures=4, pBrowseCategories=5, pBrowseClients=6, pBrowseRandomMessages=7, pBrowseLogs=8, pBrowseProviders=9, pReports=10,pBrowseReservations=12};
 
 
 squeezeView::squeezeView(QWidget *parent)
-    : QWidget(parent)
+    : QWidget(parent)//,
+      //m_toolBar(0)
 {
   qDebug()<<"===STARTING SQUEEZE AT "<<QDateTime::currentDateTime().toString()<<" ===";
   adminIsLogged = false;
@@ -114,6 +115,7 @@ squeezeView::squeezeView(QWidget *parent)
   timerUpdateGraphs = new QTimer(this);
   timerUpdateGraphs->setInterval(10000);
   categoriesHash.clear();
+  providersHash.clear();
   setupSignalConnections();
   QTimer::singleShot(1100, this, SLOT(setupDb()));
   QTimer::singleShot(2000, timerCheckDb, SLOT(start()));
@@ -122,7 +124,7 @@ squeezeView::squeezeView(QWidget *parent)
   QTimer::singleShot(2000, this, SLOT(login()));
   rmTimer = new QTimer(this);
   connect(rmTimer, SIGNAL(timeout()), SLOT(reSelectModels()) );
-  rmTimer->start(1000*60*2);
+  rmTimer->start(5000);
 
   ui_mainview.stackedWidget->setCurrentIndex(pWelcome);
   ui_mainview.errLabel->hide();
@@ -135,24 +137,16 @@ squeezeView::squeezeView(QWidget *parent)
   itmEndOfDay     = new QListWidgetItem(DesktopIcon("lemon-reports", 96), i18n("End of Day"), ui_mainview.reportsList);
   itmGralEndOfDay = new QListWidgetItem(DesktopIcon("lemon-reports", 96), i18n("General End of Day"), ui_mainview.reportsList);
   itmEndOfMonth   = new QListWidgetItem(DesktopIcon("lemon-reports", 96), i18n("End of Month"), ui_mainview.reportsList);
-  itmPrintSoldOutProducts = new QListWidgetItem(DesktopIcon("lemon-reports", 96), i18n("Sold Out Products"), ui_mainview.reportsList);
-  itmPrintLowStockProducts = new QListWidgetItem(DesktopIcon("lemon-reports", 96), i18n("Low Stock Products"), ui_mainview.reportsList);
-  itmPrintStock   = new QListWidgetItem(DesktopIcon("lemon-reports", 96), i18n("Stock Report"), ui_mainview.reportsList);
-  //itmPrintBalance = new QListWidgetItem(DesktopIcon("lemon-reports", 96), i18n("A Balance"), ui_mainview.reportsList);
+  itmPrintSoldOutProducts = new QListWidgetItem(DesktopIcon("lemon-reports", 96), i18n("Sold out products"), ui_mainview.reportsList);
+  itmPrintLowStockProducts = new QListWidgetItem(DesktopIcon("lemon-reports", 96), i18n("Low stock products"), ui_mainview.reportsList);
 
-  
   ui_mainview.btnBalances->setIcon(DesktopIcon("lemonbalance", 32));
   ui_mainview.btnCashFlow->setIcon(DesktopIcon("lemon-cashout", 32));
   ui_mainview.btnTransactions->setIcon(DesktopIcon("wallet-open", 32));
   ui_mainview.btnSO->setIcon(DesktopIcon("lemon-box", 32));
 
-
   QTimer::singleShot(500,this, SLOT(createFloatingPanels()) );
   QTimer::singleShot(1000,this, SLOT(checkDefaultView()) );
-
-  logoBottomFile = KStandardDirs::locate("appdata", "styles/");
-  logoBottomFile = logoBottomFile+"tip.svg";
-  notifierPanel = new MibitNotifier(this,logoBottomFile, DesktopIcon("dialog-warning", 32));
 
 }
 
@@ -169,6 +163,7 @@ void squeezeView::checkDefaultView()
     ui_mainview.chViewProductsListAsTable->setChecked(true);
   }
 }
+
 
 void squeezeView::createFloatingPanels()
 {
@@ -205,6 +200,8 @@ void squeezeView::login(){
   }
   if (!db.isOpen()) {
     QString details = db.lastError().text();
+
+    //testing knotification: seems not to work.
     //KPassivePopup::message( i18n("Error:"),details, DesktopIcon("dialog-error", 48), this );
     KNotification *notify = new KNotification(i18n("Unable to connect to the database"), this);
     notify->setText(details);
@@ -256,19 +253,14 @@ void squeezeView::login(){
 
 void squeezeView::setupSignalConnections()
 {
-  //NOTE: Use activated or double clicked??? sometimes doubleclicked does not work! by using activated and setting "double clicks activate" on
-  //      kde systemsettings preference dialog (mose and keyboard config) is fine for squeeze, but not for lemon using a touchscreen. In this
-  //      last case, it make sense to let "single click activates" setting on kde systemsettings since is rarely used lemon and squeeze in the same pc.
-  
   connect(ui_mainview.usersView, SIGNAL(activated(const QModelIndex &)), SLOT(usersViewOnSelected(const QModelIndex &)));
   connect(ui_mainview.clientsView, SIGNAL(activated(const QModelIndex &)), SLOT(clientsViewOnSelected(const QModelIndex &)));
   connect(ui_mainview.productsView, SIGNAL(activated(const QModelIndex &)), SLOT(productsViewOnSelected(const QModelIndex &)));
   connect(ui_mainview.productsViewAlt, SIGNAL(activated(const QModelIndex &)), SLOT(productsViewOnSelected(const QModelIndex &)));
-  connect(ui_mainview.tableReservations, SIGNAL(activated(const QModelIndex &)), SLOT(reservationsOnSelected(const QModelIndex &)));
-  connect(ui_mainview.tableReservations, SIGNAL(entered(const QModelIndex &)), SLOT(reservationsOnSelected(const QModelIndex &)));
-  ui_mainview.tableReservations->setMouseTracking(true); //to allow the entered signal works on the previous line.
+  connect(ui_mainview.providersTable, SIGNAL(activated(const QModelIndex &)), SLOT(providersOnSelected(const QModelIndex &)));
 
   connect(ui_mainview.groupFilterOffers, SIGNAL(toggled(bool)), SLOT(setOffersFilter()));
+  
   connect(ui_mainview.chOffersSelectDate, SIGNAL(toggled(bool)), SLOT(setOffersFilter()));
   connect(ui_mainview.chOffersTodayDiscounts, SIGNAL(toggled(bool)), SLOT(setOffersFilter()));
   connect(ui_mainview.chOffersOldDiscounts, SIGNAL(toggled(bool)), SLOT(setOffersFilter()));
@@ -276,8 +268,10 @@ void squeezeView::setupSignalConnections()
   connect(ui_mainview.editOffersFilterByProduct, SIGNAL( textEdited(const QString &) ), SLOT(setOffersFilter()));
   connect(ui_mainview.btnAddUser, SIGNAL(clicked()), SLOT(createUser()));
   connect(ui_mainview.btnAddOffer, SIGNAL(clicked()), SLOT(createOffer()));
+  connect(ui_mainview.btnAddProvider, SIGNAL(clicked()), SLOT(createProvider()));
   connect(ui_mainview.btnDeleteUser, SIGNAL(clicked()), SLOT(deleteSelectedUser()));
   connect(ui_mainview.btnDeleteOffer, SIGNAL(clicked()), SLOT(deleteSelectedOffer()));
+  connect(ui_mainview.btnDeleteProvider, SIGNAL(clicked()), SLOT(deleteSelectedProvider()));
   connect(ui_mainview.btnAddProduct, SIGNAL(clicked()), SLOT(createProduct()) );
   connect(ui_mainview.btnAddMeasure, SIGNAL(clicked()), SLOT(createMeasure()) );
   connect(ui_mainview.btnAddCategory, SIGNAL(clicked()), SLOT(createCategory()) );
@@ -298,7 +292,6 @@ void squeezeView::setupSignalConnections()
   connect(this, SIGNAL(signalAdminLoggedOff()),  SLOT( disableUI()));
   //connect(ui_mainview.btnExit, SIGNAL(clicked()),  SLOT( doEmitSignalSalir()));
 
-  
   connect(ui_mainview.chViewProductsListAsGrid, SIGNAL(toggled(bool)), SLOT(showProdListAsGrid()));
   connect(ui_mainview.chViewProductsListAsTable, SIGNAL(toggled(bool)), SLOT(showProdListAsTable() ));
 
@@ -308,7 +301,6 @@ void squeezeView::setupSignalConnections()
   connect(ui_mainview.rbTransFilterByStateCancelled, SIGNAL(toggled(bool)), this, SLOT( setTransactionsFilter()) );
   connect(ui_mainview.rbTransFilterByPaidCash, SIGNAL(toggled(bool)), this, SLOT( setTransactionsFilter()) );
   connect(ui_mainview.rbTransFilterByPaidCredit, SIGNAL(toggled(bool)), this, SLOT( setTransactionsFilter()) );
-  connect(ui_mainview.comboCardTypes, SIGNAL(currentIndexChanged(int)), this, SLOT( setTransactionsFilter()) );
   connect(ui_mainview.rbTransFilterByDate, SIGNAL(toggled(bool)), this, SLOT( setTransactionsFilter()) );
   connect(ui_mainview.transactionsDateEditor, SIGNAL( changed(const QDate &) ), SLOT(setTransactionsFilter()));
   connect(ui_mainview.rbTransFilterByUser, SIGNAL(toggled(bool)), this, SLOT( setTransactionsFilter()) );
@@ -352,6 +344,7 @@ void squeezeView::setupSignalConnections()
   connect(ui_mainview.rbProductsFilterByLessSold, SIGNAL(toggled(bool)), this, SLOT( setProductsFilter()) );
   connect(ui_mainview.rbProductsFilterByAlmostSoldOut, SIGNAL(toggled(bool)), this, SLOT( setProductsFilter()) );
   connect(ui_mainview.rbProductsFilterByRaw, SIGNAL(toggled(bool)), this, SLOT( setProductsFilter()) );
+  connect(ui_mainview.rbProductsFilterByIsIndividual, SIGNAL(toggled(bool)), this, SLOT( setProductsFilter()) );
   connect(ui_mainview.rbProductsFilterByGroup, SIGNAL(toggled(bool)), this, SLOT( setProductsFilter()) );
   connect(ui_mainview.groupFilterProducts, SIGNAL(toggled(bool)), this, SLOT( setProductsFilter()) );
   
@@ -384,10 +377,6 @@ void squeezeView::setupSignalConnections()
   connect(ui_mainview.rbSOByStatusDelivered, SIGNAL( toggled(bool) ), SLOT(setSpecialOrdersFilter()));
   connect(ui_mainview.rbSOByStatusCancelled, SIGNAL(toggled(bool)), this, SLOT( setSpecialOrdersFilter()) );
   connect(ui_mainview.datePicker,SIGNAL(changed(const QDate &)), this, SLOT( setSpecialOrdersFilter()) );
-
-
-  connect(ui_mainview.btnAddCurrency, SIGNAL(clicked()), SLOT(createCurrency()));
-  connect(ui_mainview.btnDeleteCurrency, SIGNAL(clicked()), SLOT(deleteSelectedCurrency()));
 }
 
 void squeezeView::doEmitSignalSalir()
@@ -428,7 +417,6 @@ void squeezeView::showProductsPage()
   ui_mainview.headerImg->setPixmap((DesktopIcon("lemon-box",48)));
   ui_mainview.btnPrintBalance->hide();
   QTimer::singleShot(200,this, SLOT(adjustProductsTable()));
-  qDebug()<<"view ALT geometry:"<<ui_mainview.productsViewAlt->geometry()<<" NORM Geom:"<<ui_mainview.productsView->geometry();
   QTimer::singleShot(500,fpFilterProducts, SLOT(fixPos()));
 }
 
@@ -451,7 +439,7 @@ void squeezeView::showUsersPage()
 {
   ui_mainview.stackedWidget->setCurrentIndex(pBrowseUsers);
   if (usersModel->tableName().isEmpty()) setupUsersModel();
-  ui_mainview.headerLabel->setText(i18n("Vendors"));
+  ui_mainview.headerLabel->setText(i18n("Users"));
   ui_mainview.headerImg->setPixmap((DesktopIcon("lemon-user",48)));
   ui_mainview.btnPrintBalance->hide();
 }
@@ -549,13 +537,6 @@ void squeezeView::showRandomMsgs()
   if (randomMsgModel->tableName().isEmpty()) setupRandomMsgModel();
 }
 
-void squeezeView::showCurrencies()
-{
-    ui_mainview.stackedWidget->setCurrentIndex(pBrowseCurrencies);
-    ui_mainview.headerLabel->setText(i18n("Currencies"));
-    ui_mainview.headerImg->setPixmap((DesktopIcon("lemon-money",48)));
-    if (currenciesModel->tableName().isEmpty()) setupCurrenciesModel();
-}
 
 void squeezeView::showReservations()
 {
@@ -564,6 +545,7 @@ void squeezeView::showReservations()
     ui_mainview.headerImg->setPixmap((DesktopIcon("lemon-box",48)));
     if (reservationsModel->tableName().isEmpty()) setupReservationsModel();
 }
+
 
 void squeezeView::toggleFilterBox(bool show)
 {
@@ -715,7 +697,6 @@ void squeezeView::updateGraphs()
       QList<TransactionInfo> monthTrans = myDb->getMonthTransactionsForPie();
       ProfitRange rangeP = myDb->getMonthProfitRange();
       ProfitRange rangeS = myDb->getMonthSalesRange();
-      //qDebug()<<"** [Ranges] Profit:"<<rangeP.min<<","<<rangeP.max<<" Sales:"<<rangeS.min<<","<<rangeS.max;
       TransactionInfo info;
       ///plots
       //clear data
@@ -724,33 +705,23 @@ void squeezeView::updateGraphs()
       // X = date, Y=profit
       int hoy=0;
       hoy = QDate::currentDate().day();
+      if (hoy==1) hoy=2;//si es el unico dia, exapndir a 2 para los limites
 
       //NOTE:Set the same scale for both plots?? to compare.. or his own range to each one. if profit>sales?
-      ui_mainview.plotSales->setLimits(0, hoy+1, rangeS.min-rangeS.min*.10, rangeS.max+rangeS.max*.10);
-      ui_mainview.plotProfit->setLimits(0, hoy+1, rangeP.min-rangeS.min*.10, rangeP.max+rangeP.max*.10);
+      ui_mainview.plotSales->setLimits(1, hoy, rangeS.min, rangeS.max+rangeS.max*.10);
+      ui_mainview.plotProfit->setLimits(1, hoy, rangeP.min, rangeP.max+rangeP.max*.10);
       //insert each day's sales and profit.
       int day=0; double AccSales=0.0; double AccProfit=0.0;
-      //BEGIN Fix old issue. This is to fix the not shown values, the first and last days are not shown, fixed by adding day 0 and one after the last.
-      objSales->addPoint(0,0, "0");
-      objProfit->addPoint(0,0, "0");
-      if (!monthTrans.isEmpty()) {
-        TransactionInfo inf;
-        inf.date = monthTrans.last().date.addDays(1);
-        inf.amount = 0;
-        inf.utility = 0;
-        monthTrans.append(inf);
-      }
-      //END Fix old issue.
       for (int i = 0; i < monthTrans.size(); ++i) {
         info = monthTrans.at(i);
+        //qDebug()<<i<<", sales:"<<info.amount<<" profit:"<<info.profit;
         ///we got one result per day (sum)
         //insert the day,profit to the plot
         AccSales  = info.amount;
-        AccProfit = info.utility;
+        AccProfit = info.profit;
         day       = info.date.day();
         objSales->addPoint(day,AccSales, QString::number(AccSales));
         objProfit->addPoint(day,AccProfit, QString::number(AccProfit));
-        //qDebug()<<"ITERATING MONTH TRANSACTIONS  |  "<<day<<", sales:"<<info.amount<<" profit:"<<info.utility<<" AccSales:"<<AccSales<<" AccProfit:"<<AccProfit;
       } //for each eleement
       
 
@@ -846,8 +817,7 @@ void squeezeView::setupDb()
     specialOrdersModel   = new QSqlRelationalTableModel();
     randomMsgModel  = new QSqlTableModel();
     logsModel       = new QSqlRelationalTableModel();
-    reservationsModel = new QSqlRelationalTableModel();
-    currenciesModel = new QSqlTableModel();
+    providersModel  = new QSqlRelationalTableModel();
     modelsCreated   = true;
     setupProductsModel();
     setupMeasuresModel();
@@ -861,8 +831,8 @@ void squeezeView::setupDb()
     setupSpecialOrdersModel();
     setupRandomMsgModel();
     setupLogsModel();
-    setupCurrenciesModel();
     setupReservationsModel();
+    setupProvidersModel();
   } else {
     emit signalDisconnected();
     disableUI();
@@ -912,8 +882,7 @@ void squeezeView::connectToDb()
       specialOrdersModel   = new QSqlRelationalTableModel();
       randomMsgModel  = new QSqlTableModel();
       logsModel       = new QSqlRelationalTableModel();
-      currenciesModel = new QSqlTableModel();
-      reservationsModel = new QSqlRelationalTableModel();
+      providersModel  = new QSqlRelationalTableModel();
       modelsCreated = true;
     }
     dlgPassword->setDb(db);
@@ -931,11 +900,10 @@ void squeezeView::connectToDb()
     setupSpecialOrdersModel();
     setupRandomMsgModel();
     setupLogsModel();
-    setupCurrenciesModel();
+    setupProvidersModel();
     setupReservationsModel();
   }
 }
-
 
 //NOTE:There is a problem if connected and then mysql stop... db.isOpen() returns true.
 void squeezeView::checkDBStatus()
@@ -990,7 +958,7 @@ void squeezeView::setupUsersModel()
 void squeezeView::setupProductsModel()
 {
   openDB();
-  qDebug()<<"setupProducts..";
+  qDebug()<<"setupProducts.. after openDB";
   if (db.isOpen()) {
     productsModel->setTable("products");
 
@@ -1002,8 +970,6 @@ void squeezeView::setupProductsModel()
     productSoldUnitsIndex= productsModel->fieldIndex("soldunits");
     productLastSoldIndex= productsModel->fieldIndex("datelastsold");
     productUnitsIndex= productsModel->fieldIndex("units");
-    productTaxIndex = productsModel->fieldIndex("taxpercentage");
-    productETaxIndex= productsModel->fieldIndex("extrataxes");
     productPhotoIndex=productsModel->fieldIndex("photo");
     productCategoryIndex=productsModel->fieldIndex("category");
     productPointsIndex=productsModel->fieldIndex("points");
@@ -1011,7 +977,10 @@ void squeezeView::setupProductsModel()
     productAlphaCodeIndex = productsModel->fieldIndex("alphacode");
     productIsAGroupIndex  = productsModel->fieldIndex("isAGroup");
     productIsARawIndex    = productsModel->fieldIndex("isARawProduct");
+    productIsIndividualIndex  = productsModel->fieldIndex("isIndividual");
     productGEIndex        = productsModel->fieldIndex("groupElements");
+    productBrandIndex = productsModel->fieldIndex("brandid");
+    productTaxModelIndex = productsModel->fieldIndex("taxmodel");
 
 
     ui_mainview.productsView->setModel(productsModel);
@@ -1027,18 +996,16 @@ void squeezeView::setupProductsModel()
 
     ui_mainview.productsViewAlt->setColumnHidden(productPhotoIndex, true);
     ui_mainview.productsViewAlt->setColumnHidden(productUnitsIndex, true);
-    ui_mainview.productsViewAlt->setColumnHidden(productTaxIndex, true);
-    ui_mainview.productsViewAlt->setColumnHidden(productETaxIndex, true);
     ui_mainview.productsViewAlt->setColumnHidden(productPointsIndex, true);
     ui_mainview.productsViewAlt->setColumnHidden(productGEIndex, true);
-    ui_mainview.productsViewAlt->setColumnHidden(productIsAGroupIndex, true);
-    ui_mainview.productsViewAlt->setColumnHidden(productIsARawIndex, true);
-    /// 0.7 version : hidden next columns
-    ui_mainview.productsViewAlt->setColumnHidden(productLastProviderIndex, true);
-    ui_mainview.productsViewAlt->setColumnHidden(productAlphaCodeIndex, true);
 
     productsModel->setRelation(productCategoryIndex, QSqlRelation("categories", "catid", "text"));
     productsModel->setRelation(productLastProviderIndex, QSqlRelation("providers", "id", "name"));
+    productsModel->setRelation(productBrandIndex, QSqlRelation("brands", "brandid", "bname"));
+    productsModel->setRelation(productTaxModelIndex, QSqlRelation("taxmodels", "modelid", "tname"));
+    productsModel->setRelation(productIsARawIndex, QSqlRelation("bool_values", "id", "text"));
+    productsModel->setRelation(productIsIndividualIndex, QSqlRelation("bool_values", "id", "text"));
+    productsModel->setRelation(productIsAGroupIndex, QSqlRelation("bool_values", "id", "text"));
 
     productsModel->setHeaderData(productCodeIndex, Qt::Horizontal, i18n("Code"));
     productsModel->setHeaderData(productDescIndex, Qt::Horizontal, i18n("Name"));
@@ -1050,6 +1017,11 @@ void squeezeView::setupProductsModel()
     productsModel->setHeaderData(productLastSoldIndex, Qt::Horizontal, i18n("Last Sold") );
     productsModel->setHeaderData(productLastProviderIndex, Qt::Horizontal, i18n("Last Provider") );
     productsModel->setHeaderData(productAlphaCodeIndex, Qt::Horizontal, i18n("Alpha Code") );
+    productsModel->setHeaderData(productTaxModelIndex, Qt::Horizontal, i18n("Tax Model") );
+    productsModel->setHeaderData(productBrandIndex, Qt::Horizontal, i18n("Brand") );
+    productsModel->setHeaderData(productIsAGroupIndex, Qt::Horizontal, i18n("Is Group") );
+    productsModel->setHeaderData(productIsARawIndex, Qt::Horizontal, i18n("Is Raw Product") );
+    productsModel->setHeaderData(productIsIndividualIndex, Qt::Horizontal, i18n("Has serialnr") );
     
     ProductDelegate *delegate = new ProductDelegate(ui_mainview.productsView);
     ui_mainview.productsView->setItemDelegate(delegate);
@@ -1061,16 +1033,30 @@ void squeezeView::setupProductsModel()
     //populate Categories...
     populateCategoriesHash();
     ui_mainview.comboProductsFilterByCategory->clear();
-      QHashIterator<QString, int> item(categoriesHash);
-      while (item.hasNext()) {
-        item.next();
-        ui_mainview.comboProductsFilterByCategory->addItem(item.key());
-      }
-      ui_mainview.comboProductsFilterByCategory->setCurrentIndex(0);
+    QHashIterator<QString, int> item(categoriesHash);
+    while (item.hasNext()) {
+      item.next();
+      ui_mainview.comboProductsFilterByCategory->addItem(item.key());
+    }
+    ui_mainview.comboProductsFilterByCategory->setCurrentIndex(0);
 
-      ui_mainview.rbProductsFilterByAvailable->setChecked(true);
-      ui_mainview.productsViewAlt->setCurrentIndex(productsModel->index(0, 0));
-      setProductsFilter();
+//kh 2012-07-15
+    QAbstractItemModel *model =ui_mainview.comboProductsFilterByCategory->model();
+    model->sort(0);
+
+    //populate Providers...
+    populateProvidersHash();
+    ui_mainview.comboProductsFilterByProvider->clear();
+    QHashIterator<QString, qulonglong> itemp(providersHash);
+    while (itemp.hasNext()) {
+      itemp.next();
+      ui_mainview.comboProductsFilterByProvider->addItem(itemp.key());
+    }
+    ui_mainview.comboProductsFilterByProvider->setCurrentIndex(0);
+
+    ui_mainview.rbProductsFilterByAvailable->setChecked(true);
+    ui_mainview.productsViewAlt->setCurrentIndex(productsModel->index(0, 0));
+    setProductsFilter();
  }
  qDebug()<<"setupProducts.. done.";
 }
@@ -1082,15 +1068,6 @@ void squeezeView::populateCategoriesHash()
   categoriesHash.clear();
   categoriesHash = myDb->getCategoriesHash();
   delete myDb;
-}
-
-void squeezeView::populateCardTypesHash()
-{
-    Azahar *myDb = new Azahar;
-    myDb->setDatabase(db);
-    cardTypesHash.clear();
-    cardTypesHash = myDb->getCardTypesHash();
-    delete myDb;
 }
 
 void squeezeView::setProductsFilter()
@@ -1105,7 +1082,8 @@ else {
   //1st if: Filter by DESC.
     if (!regexp.isValid())  ui_mainview.editProductsFilterByDesc->setText("");
     if (ui_mainview.editProductsFilterByDesc->text()=="*" || ui_mainview.editProductsFilterByDesc->text()=="") productsModel->setFilter("");
-    else  productsModel->setFilter(QString("products.name REGEXP '%1'").arg(ui_mainview.editProductsFilterByDesc->text()));
+//    else  productsModel->setFilter(QString("products.name REGEXP '%1'").arg(ui_mainview.editProductsFilterByDesc->text()));
+    else  productsModel->setFilter(QString("products.name REGEXP '%1*' OR products.code REGEXP '%1*' OR products.alphacode REGEXP '%1*'").arg(ui_mainview.editProductsFilterByDesc->text()));
     productsModel->setSort(productStockIndex, Qt::DescendingOrder);
   }
   else if (ui_mainview.rbProductsFilterByCategory->isChecked()) {
@@ -1144,10 +1122,26 @@ else {
     productsModel->setFilter(QString("products.isARawProduct=true"));
     productsModel->setSort(productCodeIndex, Qt::AscendingOrder);
   }
+  else if (ui_mainview.rbProductsFilterByIsIndividual->isChecked()) {
+    //7+1th if: filter by individual products
+    productsModel->setFilter(QString("products.isIndividual=true"));
+    productsModel->setSort(productCodeIndex, Qt::AscendingOrder);
+  }
   else if (ui_mainview.rbProductsFilterByGroup->isChecked()) {
     //8th if: filter by GROUPS
     productsModel->setFilter(QString("products.isAGroup=true"));
     productsModel->setSort(productCodeIndex, Qt::AscendingOrder);
+  }
+  else if (ui_mainview.rbProductsFilterByProvider->isChecked()) {
+    //9th if: Filter by Last Provider
+    //Find provid for the text on the combobox.
+    int provId=-1;
+    QString provText = ui_mainview.comboProductsFilterByProvider->currentText();
+    if (providersHash.contains(provText)) {
+      provId = providersHash.value(provText);
+    }
+    productsModel->setFilter(QString("products.lastproviderid=%1").arg(provId));
+    productsModel->setSort(productStockIndex, Qt::DescendingOrder);
   }
   else {
   //else: filter by less sold items
@@ -1255,6 +1249,8 @@ void squeezeView::setupClientsModel()
 {
   if (db.isOpen()) {
     clientsModel->setTable("clients");
+TRACE;
+    clientsModel->setSort(clientsModel->fieldIndex("name"),Qt::AscendingOrder); //order by lastname
     ui_mainview.clientsView->setViewMode(QListView::IconMode);
     ui_mainview.clientsView->setGridSize(QSize(170,170));
     ui_mainview.clientsView->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -1263,11 +1259,12 @@ void squeezeView::setupClientsModel()
     ui_mainview.clientsView->setModelColumn(clientsModel->fieldIndex("photo"));
     ui_mainview.clientsView->setSelectionMode(QAbstractItemView::SingleSelection);
 
-    UsersDelegate *delegate = new UsersDelegate(ui_mainview.clientsView);
+    ClientsDelegate *delegate = new ClientsDelegate(ui_mainview.clientsView);
     ui_mainview.clientsView->setItemDelegate(delegate);
 
     clientsModel->select();
-    ui_mainview.clientsView->setCurrentIndex(clientsModel->index(0, 0));
+TRACE;
+//kh18.07.    ui_mainview.clientsView->setCurrentIndex(clientsModel->index(0, 0));
 
   }
   else {
@@ -1282,7 +1279,7 @@ void squeezeView::setupClientsModel()
 void squeezeView::setupTransactionsModel()
 {
   openDB();
-  qDebug()<<"setupTransactions..";
+  qDebug()<<"setupTransactions.. after openDB";
   if (db.isOpen()) {
     transactionsModel->setTable("transactions");
     
@@ -1304,11 +1301,10 @@ void squeezeView::setupTransactionsModel()
     transDiscMoneyIndex=transactionsModel->fieldIndex("discmoney");
     transDiscIndex=transactionsModel->fieldIndex("disc");
     transCardAuthNumberIndex=transactionsModel->fieldIndex("cardauthnumber");
-    transUtilityIndex=transactionsModel->fieldIndex("utility");
+    transUtilityIndex=transactionsModel->fieldIndex("profit");
     transTerminalNumIndex=transactionsModel->fieldIndex("terminalnum");
     transProvIdIndex = transactionsModel->fieldIndex("providerid");
     transSOIndex = transactionsModel->fieldIndex("specialOrders");
-    int transCardTypeId = transactionsModel->fieldIndex("cardtype"); 
 
     
     ui_mainview.transactionsTable->setModel(transactionsModel);
@@ -1322,7 +1318,6 @@ void squeezeView::setupTransactionsModel()
     transactionsModel->setRelation(transClientidIndex, QSqlRelation("clients", "id", "name"));
     transactionsModel->setRelation(transUseridIndex, QSqlRelation("users", "id", "username"));
     transactionsModel->setRelation(transProvIdIndex, QSqlRelation("providers", "id", "name"));
-    transactionsModel->setRelation(transCardTypeId, QSqlRelation("cardtypes", "typeid", "text"));
     
     transactionsModel->setHeaderData(transIdIndex, Qt::Horizontal, i18n("Id"));
     transactionsModel->setHeaderData(transClientidIndex, Qt::Horizontal, i18n("Client"));
@@ -1344,17 +1339,12 @@ void squeezeView::setupTransactionsModel()
     transactionsModel->setHeaderData(transUtilityIndex, Qt::Horizontal, i18n("Profit") );
     transactionsModel->setHeaderData(transTerminalNumIndex, Qt::Horizontal, i18n("Terminal #") );
     transactionsModel->setHeaderData(transProvIdIndex, Qt::Horizontal, i18n("Provider") );
-    transactionsModel->setHeaderData(transCardTypeId, Qt::Horizontal, i18n("Card Type") );
-
-    ui_mainview.transactionsTable->setColumnHidden(transactionsModel->fieldIndex("totalTax"), true);
-    ui_mainview.transactionsTable->setColumnHidden(transactionsModel->fieldIndex("specialOrders"), true);
-    ui_mainview.transactionsTable->setColumnHidden(transactionsModel->fieldIndex("itemlist"), true);
-    //ui_mainview.transactionsTable->setColumnHidden(transactionsModel->fieldIndex("disc"), true);
+    
     
     ui_mainview.transactionsTable->setSelectionMode(QAbstractItemView::SingleSelection);
     
     transactionsModel->select();
-    updateCardTypesCombo();
+    
   }
   qDebug()<<"setupTransactions.. done, "<<transactionsModel->lastError();
 }
@@ -1410,9 +1400,7 @@ void squeezeView::setTransactionsFilter()
     }
     else if (ui_mainview.rbTransFilterByPaidCredit->isChecked()) {
       //6th if: filter by PAID WITH CARD
-      QString cardTypeStr = ui_mainview.comboCardTypes->currentText();
-      int cardTypeId = cardTypesHash.value(cardTypeStr);
-      transactionsModel->setFilter(QString("transactions.paymethod=2 and transactions.state=2 and transactions.cardtype=%1").arg(cardTypeId)); //paid with card and finished only
+      transactionsModel->setFilter("transactions.paymethod=2 and transactions.state=2"); //paid with card and finished only
       transactionsModel->setSort(transIdIndex, Qt::AscendingOrder);
     }
     else if (ui_mainview.rbTransFilterByDate->isChecked()) {
@@ -1457,33 +1445,6 @@ void squeezeView::setTransactionsFilter()
     transactionsModel->select();
   }
   delete myDb;
-}
-
-
-//CURRENCIES
-void squeezeView::setupCurrenciesModel()
-{
-    if (db.isOpen()) {
-        currenciesModel->setTable("currencies");
-        currenciesModel->setEditStrategy(QSqlTableModel::OnFieldChange);
-        currenciesModel->setHeaderData(currenciesModel->fieldIndex("name"), Qt::Horizontal, i18n("Name"));
-        
-        ui_mainview.tableCurrencies->setModel(currenciesModel);
-        ui_mainview.tableCurrencies->setSelectionMode(QAbstractItemView::SingleSelection);
-        ui_mainview.tableCurrencies->setColumnHidden(currenciesModel->fieldIndex("id"), true);
-        ui_mainview.tableCurrencies->setItemDelegate(new QItemDelegate(ui_mainview.tableCurrencies));
-        
-        currenciesModel->select();
-        ui_mainview.tableCurrencies->setCurrentIndex(currenciesModel->index(0, 0));
-        
-    }
-    else {
-        //At this point, what to do?
-        // inform to the user about the error and finish app  or retry again some time later?
-        QString details = db.lastError().text();
-        KMessageBox::detailedError(this, i18n("Squeeze has encountered an error, click details to see the error details."), details, i18n("Error"));
-        QTimer::singleShot(10000, this, SLOT(setupCurrenciesModel()));
-    }
 }
 
 
@@ -1592,6 +1553,45 @@ void squeezeView::setBalancesFilter()
     balancesModel->select();
   }
 }
+
+
+//reservationsModel
+void squeezeView::setupReservationsModel()
+{
+#	ifdef USE_TABLE_RESERVATIONS
+    if (db.isOpen()) {
+        reservationsModel->setTable("reservations");
+        reservationsModel->setEditStrategy(QSqlTableModel::OnFieldChange);
+        reservationsModel->setHeaderData(reservationsModel->fieldIndex("id"), Qt::Horizontal, i18n("Reservation"));
+        reservationsModel->setHeaderData(reservationsModel->fieldIndex("transaction_id"), Qt::Horizontal, i18n("Tr. #"));
+        reservationsModel->setHeaderData(reservationsModel->fieldIndex("client_id"), Qt::Horizontal, i18n("Client"));
+        reservationsModel->setHeaderData(reservationsModel->fieldIndex("date"), Qt::Horizontal, i18n("Date"));
+        reservationsModel->setHeaderData(reservationsModel->fieldIndex("status"), Qt::Horizontal, i18n("Status"));
+        reservationsModel->setHeaderData(reservationsModel->fieldIndex("payment"), Qt::Horizontal, i18n("Prepayment"));
+        reservationsModel->setHeaderData(reservationsModel->fieldIndex("total"), Qt::Horizontal, i18n("Total"));
+
+        reservationsModel->setRelation(reservationsModel->fieldIndex("client_id"), QSqlRelation("clients", "id", "name"));
+        reservationsModel->setRelation(reservationsModel->fieldIndex("status_id"), QSqlRelation("transactionstates", "stateid", "text"));
+        
+        ui_mainview.tableReservations->setModel(reservationsModel);
+        ui_mainview.tableReservations->setSelectionMode(QAbstractItemView::SingleSelection);
+        ui_mainview.tableReservations->setColumnHidden(reservationsModel->fieldIndex("totaltaxes"), true);
+        ui_mainview.tableReservations->setItemDelegate(new QItemDelegate(ui_mainview.tableReservations));
+        
+        reservationsModel->select();
+        ui_mainview.tableReservations->setCurrentIndex(reservationsModel->index(0, 0));
+        
+    }
+    else {
+        //At this point, what to do?
+        // inform to the user about the error and finish app  or retry again some time later?
+        QString details = db.lastError().text();
+        KMessageBox::detailedError(this, i18n("Squeeze has encountered an error, click details to see the error details."), details, i18n("Error"));
+        QTimer::singleShot(10000, this, SLOT(setupReservationsModel()));
+    }
+#	endif
+}
+
 
 
 // Special Orders
@@ -1703,78 +1703,6 @@ void squeezeView::setSpecialOrdersFilter()
   }
 }
 
-
-//reservationsModel
-void squeezeView::setupReservationsModel()
-{
-    if (db.isOpen()) {
-        reservationsModel->setTable("reservations");
-        reservationsModel->setEditStrategy(QSqlTableModel::OnFieldChange);
-        reservationsModel->setHeaderData(reservationsModel->fieldIndex("id"), Qt::Horizontal, i18n("Reservation"));
-        reservationsModel->setHeaderData(reservationsModel->fieldIndex("transaction_id"), Qt::Horizontal, i18n("Tr. #"));
-        reservationsModel->setHeaderData(reservationsModel->fieldIndex("client_id"), Qt::Horizontal, i18n("Client"));
-        reservationsModel->setHeaderData(reservationsModel->fieldIndex("date"), Qt::Horizontal, i18n("Date"));
-        reservationsModel->setHeaderData(reservationsModel->fieldIndex("status"), Qt::Horizontal, i18n("Status"));
-        reservationsModel->setHeaderData(reservationsModel->fieldIndex("payment"), Qt::Horizontal, i18n("Prepayment"));
-        reservationsModel->setHeaderData(reservationsModel->fieldIndex("total"), Qt::Horizontal, i18n("Total"));
-
-        reservationsModel->setRelation(reservationsModel->fieldIndex("client_id"), QSqlRelation("clients", "id", "name"));
-        reservationsModel->setRelation(reservationsModel->fieldIndex("status_id"), QSqlRelation("transactionstates", "stateid", "text"));
-        
-        ui_mainview.tableReservations->setModel(reservationsModel);
-        ui_mainview.tableReservations->setSelectionMode(QAbstractItemView::SingleSelection);
-        ui_mainview.tableReservations->setColumnHidden(reservationsModel->fieldIndex("totaltaxes"), true);
-        ui_mainview.tableReservations->setItemDelegate(new QItemDelegate(ui_mainview.tableReservations));
-        
-        reservationsModel->select();
-        ui_mainview.tableReservations->setCurrentIndex(reservationsModel->index(0, 0));
-        
-    }
-    else {
-        //At this point, what to do?
-        // inform to the user about the error and finish app  or retry again some time later?
-        QString details = db.lastError().text();
-        KMessageBox::detailedError(this, i18n("Squeeze has encountered an error, click details to see the error details."), details, i18n("Error"));
-        QTimer::singleShot(10000, this, SLOT(setupReservationsModel()));
-    }
-}
-
-
-void squeezeView::reservationsOnSelected(const QModelIndex &index)
-{
-    if (db.isOpen()) {
-        //getting data from model...
-        const QAbstractItemModel *model = index.model();
-        int row = index.row();
-        QModelIndex indx = model->index(row, reservationsModel->fieldIndex("id"));
-        qulonglong id = model->data(indx, Qt::DisplayRole).toULongLong();
-
-        ReservationInfo rInfo;
-        QList<TransactionItemInfo> rItems;
-        Azahar *myDb = new Azahar;
-        myDb->setDatabase(db);
-
-        rInfo  = myDb->getReservationInfo(id);
-        rItems = myDb->getTransactionItems(rInfo.transaction_id);
-
-        delete myDb;
-
-        //Draw the reservation details
-        QString text = QString("<b><span style=\" font-size:13pt;\">%1 <br>%2 </span></b><br><br><i>%3</i><br><ul>")
-        .arg(tr("Transaction No.%1").arg(rInfo.transaction_id))
-        .arg(tr("Reservation No.%1").arg(rInfo.id))
-        .arg(tr("Reserved Items:"));
-        //get each item
-        foreach(TransactionItemInfo item, rItems ) {
-            text += QString("<li> %1 x %2</li>").arg(QString::number(item.qty)).arg(item.name);
-            //TODO: display nested items if the item is a group
-        }
-        text += "</ul>";
-        ui_mainview.lblReservationDetails->setText(text);
-    }
-}
-
-
 /* widgets */
 
 void squeezeView::settingsChanged()
@@ -1802,7 +1730,6 @@ void squeezeView::settingsChangedOnInitConfig()
   connectToDb();
   login();
 }
-
 
 void squeezeView::setOffersFilter()
 {
@@ -1858,22 +1785,31 @@ void squeezeView::usersViewOnSelected(const QModelIndex & index)
     int row = index.row();
     QModelIndex indx = model->index(row, usersModel->fieldIndex("id"));
     int id = model->data(indx, Qt::DisplayRole).toInt();
+
     indx = model->index(row, usersModel->fieldIndex("username"));
     QString username = model->data(indx, Qt::DisplayRole).toString();
+TRACE;
     indx = model->index(row, usersModel->fieldIndex("name"));
     QString name = model->data(indx, Qt::DisplayRole).toString();
+
     indx = model->index(row, usersModel->fieldIndex("address"));
     QString address = model->data(indx, Qt::DisplayRole).toString();
+
     indx = model->index(row, usersModel->fieldIndex("phone"));
     QString phone = model->data(indx, Qt::DisplayRole).toString();
+
     indx = model->index(row, usersModel->fieldIndex("phone_movil"));
     QString cell = model->data(indx, Qt::DisplayRole).toString();
+
     indx = model->index(row, usersModel->fieldIndex("photo"));
     QByteArray photoBA = model->data(indx, Qt::DisplayRole).toByteArray();
+
     indx = model->index(row, usersModel->fieldIndex("password"));
     QString oldPassword = model->data(indx, Qt::DisplayRole).toString();
+
     indx = model->index(row, usersModel->fieldIndex("salt"));
     QString oldSalt = model->data(indx, Qt::DisplayRole).toString();
+
     indx = model->index(row, usersModel->fieldIndex("role"));
     int role = model->data(indx, Qt::DisplayRole).toInt();
 
@@ -1892,10 +1828,6 @@ void squeezeView::usersViewOnSelected(const QModelIndex & index)
     userEditorDlg->setCell(cell);
     userEditorDlg->setPhoto(photo);
     userEditorDlg->setUserRole(role);
-    //dont allow to scale privilages to supervisors.
-    userEditorDlg->disableRoles(!adminIsLogged);
-    //dont allow to change admin's password/info to a supervisor.
-    userEditorDlg->disallowAdminChange(!adminIsLogged);
 
     if (userEditorDlg->exec() ) {
       uInfo.id = id;
@@ -1926,8 +1858,6 @@ void squeezeView::usersViewOnSelected(const QModelIndex & index)
       Azahar *myDb = new Azahar;
       myDb->setDatabase(db);
       if (!myDb->updateUser(uInfo)) qDebug()<<"ERROR | Updating user:"<<myDb->lastError();
-      //reload loginWindow's users
-      dlgPassword->reloadUsers();
       delete myDb;
 
       usersModel->select();
@@ -1940,79 +1870,44 @@ void squeezeView::usersViewOnSelected(const QModelIndex & index)
 void squeezeView::productsViewOnSelected(const QModelIndex &index)
 {
  if (db.isOpen()) {
-  //getting data from model...
+    //getting data from model...
     const QAbstractItemModel *model = index.model();
     int row = index.row();
+
     QModelIndex indx = model->index(row, productsModel->fieldIndex("code"));
     qulonglong id = model->data(indx, Qt::DisplayRole).toULongLong();
-    
-    indx = model->index(row, productsModel->fieldIndex("photo"));
-    QByteArray photoBA = model->data(indx, Qt::DisplayRole).toByteArray();
-    QPixmap photo;
-    photo.loadFromData(photoBA);
-
-    ProductInfo pInfo;
 
     //Launch Edit dialog
-    ProductEditor *productEditorDlg = new ProductEditor(this, false);
+    ProductEditor *productEditorDlg = new ProductEditor(this, false, db);
+
     //Set data on dialog
     productEditorDlg->setModel(productsModel);
     productEditorDlg->disableCode(); //On Edit product, code cannot be changed.
     productEditorDlg->setStockQtyReadOnly(true); //on edit, cannot change qty to force use stockCorrection
     productEditorDlg->setDb(db);
-    productEditorDlg->setCode(id);
-   
+    productEditorDlg->setCode(id); //this method gets all data for such product code.
     qulonglong newcode=0;
+
+    connect ( productEditorDlg, SIGNAL(updateCategoriesModel()), this, SLOT(updateCategoriesCombo()) );
+    connect ( productEditorDlg, SIGNAL(updateMeasuresModel()), this, SLOT(updateMeasuresModel()) );
+    connect ( productEditorDlg, SIGNAL(updateProvidersModel()), this, SLOT(updateProvidersModel()) );
+
     //Launch dialog, and if dialog is accepted...
     if (productEditorDlg->exec() ) {
       //get changed|unchanged values
-      newcode        = productEditorDlg->getCode();
-      pInfo.alphaCode= productEditorDlg->getAlphacode();
-      pInfo.code     = newcode;
-      pInfo.desc     = productEditorDlg->getDescription();
-      //be aware of grouped products related to stock.
-      if (productEditorDlg->isGroup()) {
-        pInfo.stockqty = productEditorDlg->getGRoupStockMax();
-        pInfo.groupElementsStr = productEditorDlg->getGroupElementsStr();
-        pInfo.groupPriceDrop = productEditorDlg->getGroupPriceDrop(); 
-      }
-      else {
-        pInfo.stockqty = productEditorDlg->getStockQty();
-        pInfo.groupElementsStr = "";
-        pInfo.groupPriceDrop = 0;
-      }
-
-      pInfo.hasUnlimitedStock = productEditorDlg->hasUnlimitedStock();
-      pInfo.isNotDiscountable = productEditorDlg->isNotDiscountable();
-      
-      pInfo.price    = productEditorDlg->getPrice();
-      pInfo.cost     = productEditorDlg->getCost();
-      pInfo.units    = productEditorDlg->getMeasureId();
-      pInfo.tax      = productEditorDlg->getTax1();
-      pInfo.extratax = productEditorDlg->getTax2();
-      pInfo.category = productEditorDlg->getCategoryId();
-      pInfo.points   = productEditorDlg->getPoints();
-      photo          = productEditorDlg->getPhoto();
-      pInfo.photo    = Misc::pixmap2ByteArray(new QPixmap(photo)); //Photo ByteArray
-      //FIXME: NEXT line is temporal remove on 0.8 version
-      pInfo.lastProviderId = 1;
-      //Next lines are for groups
-      pInfo.isAGroup = productEditorDlg->isGroup();
-      pInfo.isARawProduct = productEditorDlg->isRaw();
-      
-
+      ProductInfo pInfo = productEditorDlg->getProductInfo();
+      newcode = pInfo.code; //to check if code change...
       //Update database
       Azahar *myDb = new Azahar;
       myDb->setDatabase(db);
-      if (!myDb->updateProduct(pInfo, id)) qDebug()<<myDb->lastError();
-      // Checar ofertas y cambiarlas/borrarlas
+      if (!myDb->updateProduct(pInfo, id)) qDebug()<<"Product update error:"<<myDb->lastError();
+      // Check offers, to move or delete them.
       if (id != newcode) {
-        if (!myDb->moveOffer(id, newcode)) qDebug()<<myDb->lastError();
+        if (!myDb->moveOffer(id, newcode)) qDebug()<<"Offer update error:"<<myDb->lastError();
       }
-      //now change stock if so --7/Sept/09
       if (productEditorDlg->isCorrectingStock()) {
-        qDebug()<<"Correcting stock. Old:"<<productEditorDlg->getOldStock()<<" New:"<<productEditorDlg->getStockQty()<<" Reason"<<productEditorDlg->getReason();
-        correctStock(pInfo.code, productEditorDlg->getOldStock(), productEditorDlg->getStockQty(), productEditorDlg->getReason());
+        correctStock(pInfo.code, productEditorDlg->getOldStock(), pInfo.stockqty, productEditorDlg->getReason());
+        log(loggedUserId,QDate::currentDate(), QTime::currentTime(), i18n("Stock Correction: [%1] from %2 to %3. Reason:%4",pInfo.code,productEditorDlg->getOldStock(),pInfo.stockqty, productEditorDlg->getReason()));
       }
       //FIXME: We must see error types, which ones are for duplicate KEYS (codes) to advertise the user.
       productsModel->select();
@@ -2031,22 +1926,35 @@ void squeezeView::clientsViewOnSelected(const QModelIndex & index)
     int row = index.row();
     QModelIndex indx = model->index(row, clientsModel->fieldIndex("id"));
     int id = model->data(indx, Qt::DisplayRole).toInt();
+DBX(id);
+    indx = model->index(row, clientsModel->fieldIndex("firstname"));
+DBX(clientsModel->fieldIndex("id"));
+DBX(clientsModel->fieldIndex("firstname"));
+DBX(clientsModel->fieldIndex("name"));
+    QString fname = model->data(indx, Qt::DisplayRole).toString();
+DBX(fname);
     indx = model->index(row, clientsModel->fieldIndex("name"));
     QString name = model->data(indx, Qt::DisplayRole).toString();
-    indx = model->index(row, clientsModel->fieldIndex("code"));
-    QString code = model->data(indx, Qt::DisplayRole).toString();
+DBX(name);
+
     indx = model->index(row, clientsModel->fieldIndex("address"));
     QString address = model->data(indx, Qt::DisplayRole).toString();
+
     indx = model->index(row, clientsModel->fieldIndex("phone"));
     QString phone = model->data(indx, Qt::DisplayRole).toString();
+
     indx = model->index(row, clientsModel->fieldIndex("phone_movil"));
     QString cell = model->data(indx, Qt::DisplayRole).toString();
+
     indx = model->index(row, clientsModel->fieldIndex("points"));
     qulonglong points = model->data(indx, Qt::DisplayRole).toULongLong();
+
     indx = model->index(row, clientsModel->fieldIndex("discount"));
     double discount = model->data(indx, Qt::DisplayRole).toDouble();
+
     indx = model->index(row, clientsModel->fieldIndex("photo"));
     QByteArray photoBA = model->data(indx, Qt::DisplayRole).toByteArray();
+
     indx = model->index(row, clientsModel->fieldIndex("since"));
     QDate sinceDate = model->data(indx, Qt::DisplayRole).toDate();
 
@@ -2055,10 +1963,11 @@ void squeezeView::clientsViewOnSelected(const QModelIndex & index)
     photo.loadFromData(photoBA);
 
     //Launch Edit dialog
-    ClientEditor *clientEditorDlg = new ClientEditor(this);
+    ClientEditor *clientEditorDlg = new ClientEditor(this,true);
     //Set data on dialog
-    clientEditorDlg->setCode(code);
     clientEditorDlg->setId(id);
+DBX(fname);
+    clientEditorDlg->setFName(fname);
     clientEditorDlg->setName(name);
     clientEditorDlg->setAddress(address);
     clientEditorDlg->setPhone(phone);
@@ -2070,7 +1979,7 @@ void squeezeView::clientsViewOnSelected(const QModelIndex & index)
 
     if (clientEditorDlg->exec() ) {
       cInfo.id       = id;
-      cInfo.code     = clientEditorDlg->getCode();
+      cInfo.fname    = clientEditorDlg->getFName();
       cInfo.name     = clientEditorDlg->getName();
       cInfo.address  = clientEditorDlg->getAddress();
       cInfo.phone    = clientEditorDlg->getPhone();
@@ -2082,28 +1991,57 @@ void squeezeView::clientsViewOnSelected(const QModelIndex & index)
 
       cInfo.photo    = Misc::pixmap2ByteArray(new QPixmap(photo));
 
+DBX(cInfo.fname);
+DBX(cInfo.name);
+
       //Modify data on mysql...
       if (!db.isOpen()) openDB();
+      QSqlQuery query(db);
       Azahar *myDb = new Azahar;
       myDb->setDatabase(db);
       myDb->updateClient(cInfo);
       delete myDb;
 
       clientsModel->select();
+TRACE;
     }
     delete clientEditorDlg;
   }
 }
 
+void squeezeView::providersOnSelected(const QModelIndex &index)
+{
+  if (db.isOpen()) {
+    //getting data from model...
+    const QAbstractItemModel *model = index.model();
+    int row = index.row();
+
+    QModelIndex indx = model->index(row, providersModel->fieldIndex("id"));
+    qulonglong id = model->data(indx, Qt::DisplayRole).toULongLong();
+    
+    //Launch Edit dialog
+    ProvidersEditor *providerEditorDlg = new ProvidersEditor(this, false, db);
+    providerEditorDlg->setDb(db);
+    providerEditorDlg->setProviderId(id);
+    if (providerEditorDlg->exec() ) {
+      ProviderInfo info = providerEditorDlg->getProviderInfo();
+      Azahar *myDb = new Azahar;
+      myDb->setDatabase(db);
+      if ( !myDb->updateProvider(info) ) qDebug()<<myDb->lastError();
+      delete myDb;
+      providersModel->select();
+TRACE;
+    }
+    delete providerEditorDlg;
+    updateProvidersCombo();
+  }
+}
+
 void squeezeView::doPurchase()
 {
-//NOTE: Unlimited stock items cannot be purchased. This limitation is in the purchase editor, so here we do not need to do anything.
   if (db.isOpen()) {
     QStringList items;
     items.clear();
-
-    //temporal items list
-    items.append("empty list"); //just a tweak for creating the transaction, celaning after creating it.
 
     Azahar *myDb = new Azahar;
     myDb->setDatabase(db);
@@ -2112,76 +2050,51 @@ void squeezeView::doPurchase()
     PurchaseEditor *purchaseEditorDlg = new PurchaseEditor(this);
     purchaseEditorDlg->setDb(db);
     if (purchaseEditorDlg->exec()) {
-      //Now add a transaction for buy
-      QDate date = QDate::currentDate();
-      QTime time = QTime::currentTime();
-      TransactionInfo tInfo;
-      tInfo.type    = tBuy;
-      tInfo.amount  = purchaseEditorDlg->getTotalBuy();
-      tInfo.date    = date;
-      tInfo.time    = time;
-      tInfo.paywith = 0.0;
-      tInfo.changegiven = 0.0;
-      tInfo.paymethod   = pCash;
-      tInfo.state   = tCompleted;
-      tInfo.userid  = 1;
-      tInfo.clientid= 1;
-      tInfo.cardnumber  = "-NA-";
-      tInfo.cardauthnum = "-NA-";
-      tInfo.itemcount   = purchaseEditorDlg->getItemCount();
-      tInfo.itemlist    = items.join(";");
-      tInfo.utility     = 0; //FIXME: utility is calculated until products are sold, not before.
-      tInfo.terminalnum = 0; //NOTE: Not really a terminal... from admin computer.
-      tInfo.providerid  = 1; //FIXME!
-      //tInfo.groups      = ""; //DEPRECATED
-      tInfo.specialOrders = "";
-      tInfo.balanceId = 0;
-      tInfo.totalTax  = purchaseEditorDlg->getTotalTaxes();
-      qulonglong trnum = myDb->insertTransaction(tInfo); //to get the transaction number to insert in the log.
-      if ( trnum <= 0 ) {
-          qDebug()<<"ERROR: Could not create a Purchase Transaction ::doPurchase()";
-          qDebug()<<"Error:"<<myDb->lastError();
-          //TODO: Notify the user about the error.
-      }
-
-      //Now cleaning the items to fill with real items...
-      items.clear();
-      //assigning new transaction id to the tInfo.
-      tInfo.id = trnum;
-
       QHash<qulonglong, ProductInfo> hash = purchaseEditorDlg->getHash();
       ProductInfo info;
       //Iterate the hash
       QHashIterator<qulonglong, ProductInfo> i(hash);
       while (i.hasNext()) {
-          i.next();
-          info = i.value();
-          double oldstockqty = info.stockqty;
-          info.stockqty = info.purchaseQty+oldstockqty;
-          //Modify data on mysql...
-          //validDiscount is for checking if product already exists on db. see line # 396 of purchaseeditor.cpp
-          if (info.validDiscount) {
-              if (!myDb->updateProduct(info, info.code))
-                  qDebug()<<myDb->lastError();
-              else {
-                  log(loggedUserId, QDate::currentDate(), QTime::currentTime(), i18n("Purchase #%4 - %1 x %2 (%3)", info.purchaseQty, info.desc, info.code, trnum) );
-                  qDebug()<<"Product updated [purchase] ok...";
-              }
-              
-          } else {
-              if (!myDb->insertProduct(info))
-                  qDebug()<<myDb->lastError();
-              else {
-                  log(loggedUserId, QDate::currentDate(), QTime::currentTime(), i18n("Purchase #%4 - [new] - %1 x %2 (%3)", info.purchaseQty, info.desc, info.code, trnum) );
-              }
-          }
-          
-          productsModel->select();
-          items.append(QString::number(info.code)+"/"+QString::number(info.purchaseQty));
-      }
-      //update items in transaction data
-      tInfo.itemlist = items.join(";");
-      myDb->updateTransaction(tInfo);
+        i.next();
+        info = i.value();
+        double oldstockqty = info.stockqty;
+        info.stockqty = info.purchaseQty+oldstockqty;
+        //Modify data on mysql...
+        if (!db.isOpen()) openDB();
+        QSqlQuery query(db);
+        //validDiscount is for checking if product already exists on db. see line # 383 of purchaseeditor.cpp
+        if (info.validDiscount) {
+          if (!myDb->updateProduct(info, info.code)) qDebug()<<myDb->lastError();
+          qDebug()<<"Product updated [purchase] ok...";
+        } else if (!myDb->insertProduct(info)) qDebug()<<myDb->lastError();
+
+        productsModel->select();
+        items.append(QString::number(info.code)+"/"+QString::number(info.purchaseQty));
+        }
+        //Now add a transaction for buy
+        QDate date = QDate::currentDate();
+        QTime time = QTime::currentTime();
+        TransactionInfo tInfo;
+        tInfo.type    = tBuy;
+        tInfo.amount  = purchaseEditorDlg->getTotalBuy();
+        tInfo.date    = date;
+        tInfo.time    = time;
+        tInfo.paywith = 0.0;
+        tInfo.changegiven = 0.0;
+        tInfo.paymethod   = pCash;
+        tInfo.state   = tCompleted;
+        tInfo.userid  = 1;
+        tInfo.clientid= 1; //FIXME for 0.8+ version!!! Put here the provider id.. but relations?????
+        tInfo.cardnumber  = "-NA-";
+        tInfo.cardauthnum = "-NA-";
+        tInfo.itemcount   = purchaseEditorDlg->getItemCount();
+        tInfo.itemlist    = items.join(";");
+        tInfo.profit      = 0; //FIXME: profit is calculated until products are sold, not before.
+        tInfo.terminalnum = 0; //NOTE: Not really a terminal... from admin computer.
+        tInfo.providerid  = 1; //FIXME!
+        tInfo.specialOrders = "";
+        myDb->insertTransaction(tInfo);
+
     }
   delete myDb;
   }
@@ -2195,7 +2108,7 @@ void squeezeView::stockCorrection()
   qulonglong pcode=0;
   QString reason;
   bool ok = false;
-  InputDialog *dlg = new InputDialog(this, true, dialogStockCorrection, i18n("Enter the quantity and reason for the change, then press <ENTER> to accept, <ESC> to cancel"));
+  InputDialog *dlg = new InputDialog(this, true, dialogStockCorrection, i18n("Enter the quantity and reason for the change, press <Enter> to accept or <ESC> to cancel"));
   if (dlg->exec())
   {
     newStockQty = dlg->dValue;
@@ -2207,18 +2120,7 @@ void squeezeView::stockCorrection()
     Azahar *myDb = new Azahar;
     myDb->setDatabase(db);
     oldStockQty = myDb->getProductStockQty(pcode);
-    ProductInfo p = myDb->getProductInfo(QString::number(pcode));
-    bool isAGroup = p.isAGroup;
-
-    //if is an Unlimited stock product, do not allow to make the correction.
-    if (p.hasUnlimitedStock)  {
-        notifierPanel->setSize(350,150);
-        notifierPanel->setOnBottom(false);
-        notifierPanel->showNotification("<b>Unlimited Stock Products cannot be purchased.</b>",5000);
-        qDebug()<<"Unlimited Stock Products cannot be purchased.";
-        return;
-    }
-    
+    bool isAGroup = myDb->getProductInfo(QString::number(pcode)).isAGroup;
     if (isAGroup) {
       //Notify to the user that this product's stock cannot be modified.
       //This is because if we modify each content's stock, all items will be at the same stock level, and it may not be desired.
@@ -2230,6 +2132,8 @@ void squeezeView::stockCorrection()
     }
     qDebug()<<"New Qty:"<<newStockQty<<" Reason:"<<reason;
     correctStock(pcode, oldStockQty, newStockQty, reason);
+    //Log event.
+    log(loggedUserId,QDate::currentDate(), QTime::currentTime(), i18n("Stock Correction: [%1] from %2 to %3. Reason:%4",pcode,oldStockQty,newStockQty, reason));
     delete myDb;
   }
 }
@@ -2238,12 +2142,7 @@ void squeezeView::correctStock(qulonglong code, double oldStock, double newStock
 {
   Azahar *myDb = new Azahar;
   myDb->setDatabase(db);
-  if (!myDb->correctStock(code, oldStock, newStock, reason ))
-      qDebug()<<myDb->lastError();
-  else {
-      //Log event.
-      log(loggedUserId,QDate::currentDate(), QTime::currentTime(), i18n("Stock Correction: [Product %1] from %2 to %3. Reason:%4",code,oldStock,newStock, reason));
-  }
+  if (!myDb->correctStock(code, oldStock, newStock, reason )) qDebug()<<myDb->lastError();
   delete myDb;
 }
 
@@ -2257,8 +2156,6 @@ void squeezeView::createUser()
   if (db.isOpen()) {
     UserEditor *userEditorDlg = new UserEditor(this);
     userEditorDlg->setUserRole(roleBasic); //preset as default the basic role
-    //dont allow to scale privilages to supervisors. (or create new admins)
-    userEditorDlg->disableRoles(!adminIsLogged);
     QPixmap photo;
 
     if (userEditorDlg->exec() ) {
@@ -2280,8 +2177,6 @@ void squeezeView::createUser()
       if (!myDb->insertUser(info)) qDebug()<<myDb->lastError();
 
       usersModel->select();
-      //reload loginWindow's users
-      dlgPassword->reloadUsers();
     }
     delete userEditorDlg;
   }
@@ -2306,12 +2201,7 @@ void squeezeView::createOffer()
 
       Azahar *myDb = new Azahar;
       myDb->setDatabase(db);
-      if ( !myDb->createOffer(offerInfo) ) {
-          qDebug()<<myDb->lastError();
-          notifierPanel->setSize(350,150);
-          notifierPanel->setOnBottom(false);
-          notifierPanel->showNotification(myDb->lastError(), 6000);
-      }
+      if ( !myDb->createOffer(offerInfo) ) qDebug()<<myDb->lastError();
       delete myDb;
       offersModel->select();
     }
@@ -2322,62 +2212,25 @@ void squeezeView::createOffer()
 void squeezeView::createProduct()
 {
  if (db.isOpen()) {
-  ProductEditor *prodEditorDlg = new ProductEditor(this, true);
+  ProductEditor *prodEditorDlg = new ProductEditor(this, true, db);
   prodEditorDlg->setModel(productsModel);
   prodEditorDlg->setDb(db);
   prodEditorDlg->enableCode();
   prodEditorDlg->setStockQtyReadOnly(false);
-  qulonglong newcode = 0;
 
   if (prodEditorDlg->exec()) {
     int resultado = prodEditorDlg->result();
 
-    newcode = prodEditorDlg->getCode();
     Azahar *myDb = new Azahar;
     myDb->setDatabase(db);
     ProductInfo info;
 
-    //This switch is for theprodEditorDlg->getPrice() new feature: When adding a new product, if entered code exists, it will be edited. to save time...
+    //The next is for the prodEditorDlg new feature: When adding a new product, if entered code exists, it will be edited. to save time...
     switch (resultado) {
       case QDialog::Accepted:
       case statusNormal:
-        if (prodEditorDlg->isGroup()) {
-          info.stockqty = prodEditorDlg->getGRoupStockMax(); //FIXME!!!! returns 1
-          info.groupElementsStr = prodEditorDlg->getGroupElementsStr();
-          info.groupPriceDrop = prodEditorDlg->getGroupPriceDrop();
-        }
-        else {
-          info.stockqty = prodEditorDlg->getStockQty();
-          info.groupElementsStr = "";
-          info.groupPriceDrop = 0;
-        }
-        info.code = newcode;
-        info.alphaCode = prodEditorDlg->getAlphacode();
-        info.desc    = prodEditorDlg->getDescription();
-        info.price   = prodEditorDlg->getPrice();
-        info.cost    = prodEditorDlg->getCost();
-        info.purchaseQty = info.stockqty;
-        info.units   = prodEditorDlg->getMeasureId();
-        info.tax     = prodEditorDlg->getTax1();
-        info.extratax= prodEditorDlg->getTax2();
-        info.photo   = Misc::pixmap2ByteArray(new QPixmap(prodEditorDlg->getPhoto()));
-        info.category= prodEditorDlg->getCategoryId();
-        info.points  = prodEditorDlg->getPoints();
-        //FIXME: NEXT line is temporal remove on 0.8 version
-        info.lastProviderId = 1;
-        //Next lines are for groups
-        info.isAGroup         = prodEditorDlg->isGroup();
-        info.isARawProduct    = prodEditorDlg->isRaw();
-
-        info.hasUnlimitedStock = prodEditorDlg->hasUnlimitedStock();
-        info.isNotDiscountable = prodEditorDlg->isNotDiscountable();
-        
-        if (!myDb->insertProduct(info))
-            qDebug()<<"ERROR:"<<myDb->lastError();
-        else {
-            //register the stock purchase!
-            createPurchase(info);
-        }
+        info = prodEditorDlg->getProductInfo();
+        if (!myDb->insertProduct(info)) qDebug()<<"ERROR:"<<myDb->lastError();
         productsModel->select();
       break;
       case statusMod: //Here is not allowed to modify a product... just create new ones...
@@ -2388,60 +2241,9 @@ void squeezeView::createProduct()
     }
    delete myDb;
   }
+  delete prodEditorDlg;
  }
  setProductsFilter();
-}
-
-TransactionInfo squeezeView::createPurchase(ProductInfo info)
-{
-    TransactionInfo tInfo;
-    if (db.isOpen()) {
-        Azahar *myDb = new Azahar;
-        myDb->setDatabase(db);
-        
-        qDebug()<<"Creating Purchase...";
-        QDate date = QDate::currentDate();
-        QTime time = QTime::currentTime();
-        tInfo.type    = tBuy;
-        tInfo.amount  = info.cost*info.stockqty; //as new product the only stock will be the new created.
-        tInfo.date    = date;
-        tInfo.time    = time;
-        tInfo.paywith = 0.0;
-        tInfo.changegiven = 0.0;
-        tInfo.paymethod   = pCash;
-        tInfo.state   = tCompleted;
-        tInfo.userid  = 1;
-        tInfo.clientid= 1;
-        tInfo.cardnumber  = "-NA-";
-        tInfo.cardauthnum = "-NA-";
-        tInfo.itemcount   = info.stockqty;
-        tInfo.itemlist    = QString("%1/%2").arg(info.code).arg(info.stockqty);
-        tInfo.utility     = 0; //FIXME: utility is calculated until products are sold, not before.
-        tInfo.terminalnum = 0; //NOTE: Not really a terminal... from admin computer.
-        tInfo.providerid  = 1; //FIXME!
-        tInfo.specialOrders = "";
-        tInfo.balanceId = 0;
-        //taxes
-        double cWOTax = 0;
-        if (myDb->getConfigTaxIsIncludedInPrice())
-            cWOTax= (info.cost)/(1+((info.tax+info.extratax)/100));
-        else
-            cWOTax = info.cost;
-        double tax = cWOTax*info.purchaseQty*(info.tax/100);
-        double tax2= cWOTax*info.purchaseQty*(info.extratax/100);
-        tInfo.totalTax  = tax + tax2;
-        //insert into database, getting the tr. number.
-        qulonglong trnum = myDb->insertTransaction(tInfo);
-        tInfo.id = trnum;
-        if ( trnum <= 0 ) qDebug()<<"ERROR: Could not create a Purchase Transaction ::createPurchase()";
-        else {
-          //log
-          log(loggedUserId, date, time, i18n("Purchase #%4 - %1 x %2 (%3)", info.stockqty, info.desc, info.code, trnum) );
-        }
-        delete myDb;
-    }
-
-    return tInfo;
 }
 
 void squeezeView::createMeasure()
@@ -2455,7 +2257,7 @@ void squeezeView::createMeasure()
 //
 //     measuresModel->insertRow(row);
   bool ok=false;
-  QString meas = QInputDialog::getText(this, i18n("New Weight or Measure"), i18n("Enter the new weight or measure to insert:"),
+  QString meas = QInputDialog::getText(this, i18n("New Weight or Measure"), i18n("Enter the new weight or measure to insert"),
                                      QLineEdit::Normal, "", &ok );
   if (ok && !meas.isEmpty()) {
     Azahar *myDb = new Azahar;
@@ -2472,7 +2274,7 @@ void squeezeView::createCategory()
 {
   if (db.isOpen()) {
   bool ok=false;
-  QString cat = QInputDialog::getText(this, i18n("New category"), i18n("Enter the new category to insert:"),
+  QString cat = QInputDialog::getText(this, i18n("New category"), i18n("Enter the new category to insert"),
                                      QLineEdit::Normal, "", &ok );
   if (ok && !cat.isEmpty()) {
     Azahar *myDb = new Azahar;
@@ -2495,31 +2297,48 @@ void squeezeView::updateCategoriesCombo()
     item.next();
     ui_mainview.comboProductsFilterByCategory->addItem(item.key());
   }
+//kh 2012-07-15
+    QAbstractItemModel *model =ui_mainview.comboProductsFilterByCategory->model();
+    model->sort(0);
 }
 
-void squeezeView::updateCardTypesCombo()
+void squeezeView::updateProvidersCombo()
 {
-    populateCardTypesHash();
-    ui_mainview.comboCardTypes->clear();
-    QHashIterator<QString, int> item(cardTypesHash);
-    while (item.hasNext()) {
-        item.next();
-        ui_mainview.comboCardTypes->addItem(item.key());
-    }
+  populateProvidersHash();
+  ui_mainview.comboProductsFilterByProvider->clear();
+  QHashIterator<QString, qulonglong> item(providersHash);
+  while (item.hasNext()) {
+    item.next();
+    ui_mainview.comboProductsFilterByProvider->addItem(item.key());
+  }
+//kh 2012-07-15
+    QAbstractItemModel *model =ui_mainview.comboProductsFilterByProvider->model();
+    model->sort(0);
+
+}
+
+void squeezeView::populateProvidersHash()
+{
+  Azahar *myDb = new Azahar;
+  myDb->setDatabase(db);
+  providersHash.clear();
+  providersHash = myDb->getProvidersHash();
+  delete myDb;
 }
 
 void squeezeView::createClient()
 {
+  int nid;
   Azahar *myDb = new Azahar;
   myDb->setDatabase(db);
 
   if (db.isOpen()) {
-    ClientEditor *clientEditorDlg = new ClientEditor(this);
+    ClientEditor *clientEditorDlg = new ClientEditor(this,true);
     ClientInfo info;
     QPixmap photo;
 
     if (clientEditorDlg->exec() ) {
-      info.code     = clientEditorDlg->getCode();
+      info.fname     = clientEditorDlg->getFName();
       info.name     = clientEditorDlg->getName();
       info.address  = clientEditorDlg->getAddress();
       info.phone    = clientEditorDlg->getPhone();
@@ -2531,9 +2350,12 @@ void squeezeView::createClient()
 
       info.photo = Misc::pixmap2ByteArray(new QPixmap(photo));
       if (!db.isOpen()) openDB();
-      if (!myDb->insertClient(info)) qDebug()<<myDb->lastError();
+      nid=myDb->insertClient(info);
+      if (!nid) qDebug()<<myDb->lastError();
+      else info.id=nid;
 
       clientsModel->select();
+TRACE;
     }
     delete clientEditorDlg;
   }
@@ -2564,6 +2386,7 @@ void squeezeView::deleteSelectedClient()
           }
           clientsModel->submitAll();
           clientsModel->select();
+TRACE;
           delete myDb;
         }
     } else KMessageBox::information(this, i18n("Default client cannot be deleted."), i18n("Cannot delete"));
@@ -2634,8 +2457,6 @@ void squeezeView::deleteSelectedOffer()
 void squeezeView::deleteSelectedProduct()
 {
   if (db.isOpen()) {
-    Azahar *myDb = new Azahar;
-    myDb->setDatabase(db);
     QModelIndex index;
     if (ui_mainview.productsView->isHidden()) {
       index = ui_mainview.productsViewAlt->currentIndex();
@@ -2651,19 +2472,29 @@ void squeezeView::deleteSelectedProduct()
       int answer = KMessageBox::questionYesNo(this, i18n("Do you really want to delete the selected product?"),
                                               i18n("Delete"));
       if (answer == KMessageBox::Yes) {
+        Azahar *myDb = new Azahar;
+        myDb->setDatabase(db);
         //first we obtain the product code to be deleted.
         qulonglong  iD = productsModel->record(index.row()).value("code").toULongLong();
         if (!productsModel->removeRow(index.row(), index)) {
           // weird:  since some time, removeRow does not work... it worked fine on versions < 0.9 ..
           bool d = myDb->deleteProduct(iD); qDebug()<<"Deleteing product ("<<iD<<") manually...";
           if (d) qDebug()<<"Deletion succed...";
-          //on deleteProduct the offers are also deleted.
         }
         productsModel->submitAll();
         productsModel->select();
+        //We must delete the product's offers also.
+        //in case of multiple offers for a product
+        qulonglong oID = myDb->getProductOfferCode(iD);
+        while (oID != 0) {
+          qDebug()<<"DELETING product code:"<<iD<<" offer code:"<<oID;
+          qulonglong oID = myDb->getProductOfferCode(iD);
+          if (myDb->deleteOffer(oID)) qDebug()<<"Ok, offer also deleted...";
+          else qDebug()<<"DEBUG:"<<myDb->lastError();
+        }
+        delete myDb;
       }
     }
-    delete myDb;
   }
 }
 
@@ -2732,6 +2563,96 @@ void squeezeView::deleteSelectedCategory()
   }
 }
 
+//Providers
+void squeezeView::showProviders()
+{
+  ui_mainview.stackedWidget->setCurrentIndex(pBrowseProviders);
+  if (providersModel->tableName().isEmpty()) setupProvidersModel();
+  ui_mainview.headerLabel->setText(i18n("Providers"));
+  ui_mainview.headerImg->setPixmap((DesktopIcon("lemon-user",48)));
+  ui_mainview.btnPrintBalance->hide();
+}
+
+void squeezeView::setupProvidersModel()
+{
+  if (db.isOpen()) {
+    providersModel->setTable("providers");
+    int provIdIndex   = providersModel->fieldIndex("id");
+    int provNameIndex = providersModel->fieldIndex("name");
+    int provAddIndex  = providersModel->fieldIndex("address");
+    int provPhoneIndex= providersModel->fieldIndex("phone");
+    int provCellIndex = providersModel->fieldIndex("cellphone");
+
+    providersModel->setHeaderData(provNameIndex, Qt::Horizontal, i18n("Name"));
+    providersModel->setHeaderData(provAddIndex, Qt::Horizontal, i18n("Address"));
+    providersModel->setHeaderData(provPhoneIndex, Qt::Horizontal, i18n("Phone"));
+    providersModel->setHeaderData(provCellIndex, Qt::Horizontal, i18n("Cell Phone"));
+    
+    ui_mainview.providersTable->setModel(providersModel);
+    ui_mainview.providersTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    ui_mainview.providersTable->setColumnHidden(provIdIndex, true);
+    ui_mainview.providersTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    
+    ui_mainview.providersTable->setCurrentIndex(providersModel->index(0, 0));
+    providersModel->select();
+    ui_mainview.providersTable->resizeColumnsToContents();
+  }
+  else {
+    //At this point, what to do?
+    // inform to the user about the error and finish app  or retry again some time later?
+    QString details = db.lastError().text();
+    KMessageBox::detailedError(this, i18n("Squeeze has encountered an error, click details to see the error details."), details, i18n("Error"));
+    QTimer::singleShot(10000, this, SLOT(setupProvidersModel()));
+  }
+}
+
+void squeezeView::createProvider()
+{
+  if (db.isOpen()) {
+    ProvidersEditor *providerEditorDlg = new ProvidersEditor(this, true, db);
+    providerEditorDlg->setDb(db);
+    if (providerEditorDlg->exec() ) {
+      ProviderInfo info = providerEditorDlg->getProviderInfo();
+      
+      Azahar *myDb = new Azahar;
+      myDb->setDatabase(db);
+      if ( !myDb->insertProvider(info) ) qDebug()<<myDb->lastError();
+      delete myDb;
+      providersModel->select();
+    }
+    delete providerEditorDlg;
+  }
+}
+
+void squeezeView::deleteSelectedProvider()
+{
+  if (db.isOpen()) {
+    QModelIndex index;
+    index = ui_mainview.providersTable->currentIndex();
+    
+    if (providersModel->tableName().isEmpty()) setupProvidersModel();
+    if (index == providersModel->index(-1,-1) ) {
+      KMessageBox::information(this, i18n("Please select a provider to delete, then press the delete button."), i18n("Cannot delete"));
+    }
+    else  {
+      int answer = KMessageBox::questionYesNo(this, i18n("Do you really want to delete the selected provider?"),i18n("Delete"));
+      if (answer == KMessageBox::Yes) {
+        Azahar *myDb = new Azahar;
+        myDb->setDatabase(db);
+        //first we obtain the provider code to be deleted.
+        qulonglong  iD = providersModel->record(index.row()).value("id").toULongLong();
+        if (!providersModel->removeRow(index.row(), index)) {
+          // weird:  since some time, removeRow does not work... it worked fine on versions < 0.9 ..
+          bool d = myDb->deleteProvider(iD); qDebug()<<"Deleteing product ("<<iD<<") manually...";
+          if (d) qDebug()<<"Deletion succed...";
+        }
+        providersModel->submitAll();
+        providersModel->select();
+        delete myDb;
+      }
+    }
+  }
+}
 
 //CASH OUTS
 void squeezeView::setupCashFlowModel()
@@ -2769,6 +2690,7 @@ void squeezeView::setupCashFlowModel()
     ui_mainview.cashFlowTable->setSelectionMode(QAbstractItemView::SingleSelection);
     
     cashflowModel->select();
+    //qDebug()<<"Cashouts ERROR:"<<cashflowModel->lastError();
   }
   qDebug()<<"setupCashFlow.. done, "<<cashflowModel->lastError();
 }
@@ -2845,10 +2767,9 @@ void squeezeView::exportQTableView(QAbstractItemView *tableview)
       progress.setValue(model->rowCount());
       //if (KMessageBox::questionYesNo(this, i18n("Data exported succesfully to %1.\n\n Would you like to open it?").arg(fileName), i18n("Finished")) == KMessageBox::Yes ){
       //  system(QString("oocalc \""+fileName+ "\"").toLatin1());
-      }
     }
+  }
 }
-
 
 // Report printing...
 
@@ -2864,12 +2785,8 @@ void squeezeView::reportActivated(QListWidgetItem *item)
     printSoldOutProducts();
   } else if ( item == itmPrintLowStockProducts ) {
     printLowStockProducts();
-  } else if ( item == itmPrintStock ) {
-    printStock();
   }
-//   } else if ( item == itmPrintBalance ) {
-//     printBalance();
-//   }
+
 }
 
 void squeezeView::printGralEndOfDay()
@@ -2885,9 +2802,9 @@ void squeezeView::printGralEndOfDay()
   amountProfit     = myDb->getDaySalesAndProfit();
   transactionsList = myDb->getDayTransactions(); //all terminals
   
-  pdInfo.storeName = myDb->getConfigStoreName();
-  pdInfo.storeAddr = myDb->getConfigStoreAddress();
-  pdInfo.storeLogo = myDb->getConfigStoreLogo();
+  pdInfo.sd.storeName = myDb->getConfigStoreName();
+  pdInfo.sd.storeAddr = myDb->getConfigStoreAddress();
+  pdInfo.sd.storeLogo = myDb->getConfigStoreLogo();
   pdInfo.thTitle   = i18n("End of day report");
   pdInfo.thTicket  = i18n("Id");
   pdInfo.salesPerson = "";
@@ -2897,8 +2814,7 @@ void squeezeView::printGralEndOfDay()
   pdInfo.thAmount  = i18n("Amount");
   pdInfo.thProfit  = i18n("Profit");
   pdInfo.thPayMethod = i18n("Method");
-  pdInfo.thTotalTaxes= i18n("Total taxes collected today: ");
-  pdInfo.logoOnTop = myDb->getConfigLogoOnTop();
+  pdInfo.sd.logoOnTop = myDb->getConfigLogoOnTop();
   pdInfo.thTotalSales  = KGlobal::locale()->formatMoney(amountProfit.amount, QString(), 2);
   pdInfo.thTotalProfit = KGlobal::locale()->formatMoney(amountProfit.profit, QString(), 2);
 
@@ -2909,7 +2825,6 @@ void squeezeView::printGralEndOfDay()
   lines.append(pdInfo.thTicket+"    "+pdInfo.thTime+ pdInfo.thAmount+"   "+pdInfo.thProfit+"   "+pdInfo.thPayMethod);
   
   //each transaction...
-  double tTaxes = 0;
   for (int i = 0; i < transactionsList.size(); ++i)
   {
     QLocale localeForPrinting; // needed to convert double to a string better
@@ -2918,22 +2833,17 @@ void squeezeView::printGralEndOfDay()
     QString tid      = QString::number(info.id);
     QString hour     = info.time.toString("hh:mm");
     QString amount   =  localeForPrinting.toString(info.amount,'f',2);
-    QString profit   =  localeForPrinting.toString(info.utility, 'f', 2);
+    QString profit   =  localeForPrinting.toString(info.profit, 'f', 2);
     QString payMethod;
     payMethod        = myDb->getPayTypeStr(info.paymethod);//using payType methods
     
     QString line     = tid +"|"+ hour +"|"+ amount +"|"+ profit +"|"+ payMethod;
     pdInfo.trLines.append(line);
     lines.append(tid+"  "+hour+"  "+ amount+"  "+profit+"  "+payMethod);
-    tTaxes += info.totalTax;
-    qDebug()<<"total sale:"<<info.amount<<" taxes this sale:"<<info.totalTax<<" accumulated taxes:"<<tTaxes;
   } //for each item
   
   lines.append(i18n("Total Sales : %1",pdInfo.thTotalSales));
   lines.append(i18n("Total Profit: %1",pdInfo.thTotalProfit));
-
-  //add taxes amount
-  pdInfo.thTotalTaxes += KGlobal::locale()->formatMoney(tTaxes, QString(), 2);
   
   if (Settings::smallTicketDotMatrix()) { // dot matrix printer
     QString printerFile=Settings::printerDevice();
@@ -2950,23 +2860,6 @@ void squeezeView::printGralEndOfDay()
     printDialog.setWindowTitle(i18n("Print end of day report"));
     if ( printDialog.exec() ) {
       PrintCUPS::printSmallEndOfDay(pdInfo, printer);
-    } else {
-        //NOTE: This is a proposition:
-        //      If the dialog is accepted (ok), then we print what the user choosed. Else, we print to a file (PDF).
-        //      The user can press ENTER when dialog appearing if the desired printer is the default (or the only).
-        qDebug()<<"User cancelled printer dialog. We export ticket to a file.";
-        QString fn = QString("%1/lemon-printing/").arg(QDir::homePath());
-        QDir dir;
-        if (!dir.exists(fn))
-            dir.mkdir(fn);
-        fn = fn+QString("GeneralEndOfDay__%1.pdf").arg(QDateTime::currentDateTime().toString("dd-MMM-yy"));
-        qDebug()<<fn;
-        
-        printer.setOutputFileName(fn);
-        printer.setPageMargins(0,0,0,0,QPrinter::Millimeter);
-        printer.setPaperSize(QSizeF(72,200), QPrinter::Millimeter); //setting small ticket paper size. 72mm x 200mm
-        
-        PrintCUPS::printSmallEndOfDay(pdInfo, printer);
     }
   } else { //big printer
     qDebug()<<"[Printing report on CUPS big size]";
@@ -3003,7 +2896,9 @@ void squeezeView::printEndOfDay()
     PrintEndOfDayInfo pdInfo;
     QList<TransactionInfo> transactionsList;
     
-    amountProfit     = myDb->getDaySalesAndProfit();
+    amountProfit     = myDb->getDaySalesAndProfit(terminalNum);
+DBX(amountProfit.amount);
+DBX(amountProfit.profit);
     transactionsList = myDb->getDayTransactions(terminalNum);
 
     if (transactionsList.count() < 1) {
@@ -3017,9 +2912,9 @@ void squeezeView::printEndOfDay()
       return; //just to quit.
     }
     
-    pdInfo.storeName = myDb->getConfigStoreName();
-    pdInfo.storeAddr = myDb->getConfigStoreAddress();
-    pdInfo.storeLogo = myDb->getConfigStoreLogo();
+    pdInfo.sd.storeName = myDb->getConfigStoreName();
+    pdInfo.sd.storeAddr = myDb->getConfigStoreAddress();
+    pdInfo.sd.storeLogo = myDb->getConfigStoreLogo();
     pdInfo.thTitle   = i18n("End of day report");
     pdInfo.thTicket  = i18n("Id");
     pdInfo.salesPerson = myDb->getUserName(transactionsList.at(0).userid);
@@ -3029,8 +2924,7 @@ void squeezeView::printEndOfDay()
     pdInfo.thAmount  = i18n("Amount");
     pdInfo.thProfit  = i18n("Profit");
     pdInfo.thPayMethod = i18n("Method");
-    pdInfo.thTotalTaxes= i18n("Total taxes collected for this terminal: ");
-    pdInfo.logoOnTop = myDb->getConfigLogoOnTop();
+    pdInfo.sd.logoOnTop = myDb->getConfigLogoOnTop();
     pdInfo.thTotalSales  = KGlobal::locale()->formatMoney(amountProfit.amount, QString(), 2);
     pdInfo.thTotalProfit = KGlobal::locale()->formatMoney(amountProfit.profit, QString(), 2);
 
@@ -3041,7 +2935,6 @@ void squeezeView::printEndOfDay()
     lines.append(pdInfo.thTicket+"    "+pdInfo.thTime+ pdInfo.thAmount+"   "+pdInfo.thProfit+"   "+pdInfo.thPayMethod);
     
     //each transaction...
-    double tTaxes = 0;
     for (int i = 0; i < transactionsList.size(); ++i)
     {
       QLocale localeForPrinting; // needed to convert double to a string better
@@ -3050,22 +2943,17 @@ void squeezeView::printEndOfDay()
       QString tid      = QString::number(info.id);
       QString hour     = info.time.toString("hh:mm");
       QString amount   =  localeForPrinting.toString(info.amount,'f',2);
-      QString profit   =  localeForPrinting.toString(info.utility, 'f', 2);
+      QString profit   =  localeForPrinting.toString(info.profit, 'f', 2);
       QString payMethod;
       payMethod        = myDb->getPayTypeStr(info.paymethod);//using payType methods
       
       QString line     = tid +"|"+ hour +"|"+ amount +"|"+ profit +"|"+ payMethod;
       pdInfo.trLines.append(line);
       lines.append(tid+"  "+hour+"  "+ amount+"  "+profit+"  "+payMethod);
-      tTaxes += info.totalTax;
-      qDebug()<<"total sale:"<<info.amount<<" taxes this sale:"<<info.totalTax<<" accumulated taxes:"<<tTaxes;
     } //for each item
     
     lines.append(i18n("Total Sales : %1",pdInfo.thTotalSales));
     lines.append(i18n("Total Profit: %1",pdInfo.thTotalProfit));
-
-    //add taxes amount
-    pdInfo.thTotalTaxes += KGlobal::locale()->formatMoney(tTaxes, QString(), 2);
     
     if (Settings::smallTicketDotMatrix()) {
       QString printerFile=Settings::printerDevice();
@@ -3073,6 +2961,7 @@ void squeezeView::printEndOfDay()
       QString printerCodec=Settings::printerCodec();
       qDebug()<<"[Printing report on "<<printerFile<<"]";
       qDebug()<<lines.join("\n");
+TRACE;
       PrintDEV::printSmallBalance(printerFile, printerCodec, lines.join("\n"));
     } else if (Settings::smallTicketCUPS()) {
       qDebug()<<"[Printing report on CUPS small size]";
@@ -3081,24 +2970,8 @@ void squeezeView::printEndOfDay()
       QPrintDialog printDialog( &printer );
       printDialog.setWindowTitle(i18n("Print end of day report"));
       if ( printDialog.exec() ) {
-      PrintCUPS::printSmallEndOfDay(pdInfo, printer);
-      } else {
-          //NOTE: This is a proposition:
-          //      If the dialog is accepted (ok), then we print what the user choosed. Else, we print to a file (PDF).
-          //      The user can press ENTER when dialog appearing if the desired printer is the default (or the only).
-          qDebug()<<"User cancelled printer dialog. We export ticket to a file.";
-          QString fn = QString("%1/lemon-printing/").arg(QDir::homePath());
-          QDir dir;
-          if (!dir.exists(fn))
-              dir.mkdir(fn);
-          fn = fn+QString("endOfDay__%1.pdf").arg(QDateTime::currentDateTime().toString("dd-MMM-yy"));
-          qDebug()<<fn;
-          
-          printer.setOutputFileName(fn);
-          printer.setPageMargins(0,0,0,0,QPrinter::Millimeter);
-          printer.setPaperSize(QSizeF(72,200), QPrinter::Millimeter); //setting small ticket paper size. 72mm x 200mm
-          
-          PrintCUPS::printSmallEndOfDay(pdInfo, printer);
+TRACE;
+	PrintCUPS::printSmallEndOfDay(pdInfo, printer);
       }
     } else { //big printer
       qDebug()<<"[Printing report on CUPS big size]";
@@ -3107,6 +2980,7 @@ void squeezeView::printEndOfDay()
       QPrintDialog printDialog( &printer );
       printDialog.setWindowTitle(i18n("Print end of day report"));
       if ( printDialog.exec() ) {
+TRACE;
 	PrintCUPS::printBigEndOfDay(pdInfo, printer);
       }
     }
@@ -3127,9 +3001,9 @@ void squeezeView::printEndOfMonth()
   amountProfit     = myDb->getMonthSalesAndProfit();
   transactionsList = myDb->getMonthTransactions(); //all terminals
   
-  pdInfo.storeName = myDb->getConfigStoreName();
-  pdInfo.storeAddr = myDb->getConfigStoreAddress();
-  pdInfo.storeLogo = myDb->getConfigStoreLogo();
+  pdInfo.sd.storeName = myDb->getConfigStoreName();
+  pdInfo.sd.storeAddr = myDb->getConfigStoreAddress();
+  pdInfo.sd.storeLogo = myDb->getConfigStoreLogo();
   pdInfo.thTitle   = i18n("End of Month report");
   pdInfo.thTicket  = i18n("Id");
   pdInfo.salesPerson = "";
@@ -3139,8 +3013,7 @@ void squeezeView::printEndOfMonth()
   pdInfo.thAmount  = i18n("Amount");
   pdInfo.thProfit  = i18n("Profit");
   pdInfo.thPayMethod = i18n("Date");
-  pdInfo.thTotalTaxes= i18n("Total taxes collected for the month: ");
-  pdInfo.logoOnTop = myDb->getConfigLogoOnTop();
+  pdInfo.sd.logoOnTop = myDb->getConfigLogoOnTop();
   pdInfo.thTotalSales  = KGlobal::locale()->formatMoney(amountProfit.amount, QString(), 2);
   pdInfo.thTotalProfit = KGlobal::locale()->formatMoney(amountProfit.profit, QString(), 2);
 
@@ -3151,7 +3024,6 @@ void squeezeView::printEndOfMonth()
   lines.append(pdInfo.thTicket+"    "+pdInfo.thTime+ pdInfo.thAmount+"   "+pdInfo.thProfit+"   "+pdInfo.thPayMethod);
   
   //each transaction...
-  double tTaxes = 0;
   for (int i = 0; i < transactionsList.size(); ++i)
   {
     QLocale localeForPrinting; // needed to convert double to a string better
@@ -3160,21 +3032,16 @@ void squeezeView::printEndOfMonth()
     QString tid      = QString::number(info.id);
     QString hour     = info.time.toString("hh:mm");
     QString amount   = localeForPrinting.toString(info.amount,'f',2);
-    QString profit   = localeForPrinting.toString(info.utility, 'f', 2);
-    QString payMethod=  info.date.toString("MMM d"); //KGlobal::locale()->formatDate(info.date, KLocale::ShortDate); //date instead of paymethod
+    QString profit   = localeForPrinting.toString(info.profit, 'f', 2);
+    QString payMethod= KGlobal::locale()->formatDate(info.date, KLocale::ShortDate); //date instead of paymethod
     
     QString line     = tid +"|"+ hour +"|"+ amount +"|"+ profit +"|"+ payMethod;
     pdInfo.trLines.append(line);
     lines.append(tid+"  "+hour+"  "+ amount+"  "+profit+"  "+payMethod);
-    tTaxes += info.totalTax;
-    qDebug()<<"total sale:"<<info.amount<<" taxes this sale:"<<info.totalTax<<" accumulated taxes:"<<tTaxes;
   } //for each item
   
   lines.append(i18n("Total Sales : %1",pdInfo.thTotalSales));
   lines.append(i18n("Total Profit: %1",pdInfo.thTotalProfit));
-
-  //add taxes amount
-  pdInfo.thTotalTaxes += KGlobal::locale()->formatMoney(tTaxes, QString(), 2);
   
   if (Settings::smallTicketDotMatrix()) {
     QString printerFile=Settings::printerDevice();
@@ -3191,23 +3058,6 @@ void squeezeView::printEndOfMonth()
     printDialog.setWindowTitle(i18n("Print end of Month report"));
     if ( printDialog.exec() ) {
       PrintCUPS::printSmallEndOfDay(pdInfo, printer); //uses the same method for end of month 
-    } else {
-        //NOTE: This is a proposition:
-        //      If the dialog is accepted (ok), then we print what the user choosed. Else, we print to a file (PDF).
-        //      The user can press ENTER when dialog appearing if the desired printer is the default (or the only).
-        qDebug()<<"User cancelled printer dialog. We export ticket to a file.";
-        QString fn = QString("%1/lemon-printing/").arg(QDir::homePath());
-        QDir dir;
-        if (!dir.exists(fn))
-            dir.mkdir(fn);
-        fn = fn+QString("endOfMonth__%1.pdf").arg(QDateTime::currentDateTime().toString("dd-MMM-yy"));
-        qDebug()<<fn;
-        
-        printer.setOutputFileName(fn);
-        printer.setPageMargins(0,0,0,0,QPrinter::Millimeter);
-        printer.setPaperSize(QSizeF(72,200), QPrinter::Millimeter); //setting small ticket paper size. 72mm x 200mm
-        
-        PrintCUPS::printSmallEndOfDay(pdInfo, printer);
     }
   } else { //big printer
     qDebug()<<"[Printing report on CUPS big size]";
@@ -3232,10 +3082,10 @@ void squeezeView::printLowStockProducts()
   
   //Header Information
   PrintLowStockInfo plInfo;
-  plInfo.storeName = myDb->getConfigStoreName();
-  plInfo.storeAddr = myDb->getConfigStoreAddress();
-  plInfo.storeLogo = myDb->getConfigStoreLogo();
-  plInfo.logoOnTop = myDb->getConfigLogoOnTop();
+  plInfo.sd.storeName = myDb->getConfigStoreName();
+  plInfo.sd.storeAddr = myDb->getConfigStoreAddress();
+  plInfo.sd.storeLogo = myDb->getConfigStoreLogo();
+  plInfo.sd.logoOnTop = myDb->getConfigLogoOnTop();
   plInfo.hTitle    = i18n("Low Stock Products (< %1)", Settings::mostSoldMaxValue());
   plInfo.hDate     = KGlobal::locale()->formatDateTime(QDateTime::currentDateTime(), KLocale::LongDate);
   plInfo.hCode     = i18n("Code");
@@ -3272,23 +3122,6 @@ void squeezeView::printLowStockProducts()
     printDialog.setWindowTitle(i18n("Print Low Stock Report"));
     if ( printDialog.exec() ) {
       PrintCUPS::printSmallLowStockReport(plInfo, printer);
-    } else {
-        //NOTE: This is a proposition:
-        //      If the dialog is accepted (ok), then we print what the user choosed. Else, we print to a file (PDF).
-        //      The user can press ENTER when dialog appearing if the desired printer is the default (or the only).
-        qDebug()<<"User cancelled printer dialog. We export ticket to a file.  :: printLowStockProducts";
-        QString fn = QString("%1/lemon-printing/").arg(QDir::homePath());
-        QDir dir;
-        if (!dir.exists(fn))
-            dir.mkdir(fn);
-        fn = fn+QString("LowStockReport__%1.pdf").arg(QDateTime::currentDateTime().toString("dd-MMM-yy"));
-        qDebug()<<fn;
-        
-        printer.setOutputFileName(fn);
-        printer.setPageMargins(0,0,0,0,QPrinter::Millimeter);
-        printer.setPaperSize(QSizeF(72,200), QPrinter::Millimeter); //setting small ticket paper size. 72mm x 200mm
-        
-        PrintCUPS::printSmallLowStockReport(plInfo, printer);
     }
   } else { //big printer
     qDebug()<<"[Printing report on CUPS big size]";
@@ -3303,87 +3136,6 @@ void squeezeView::printLowStockProducts()
   delete myDb;
 }
 
-//NOTE: The unlimited stock producs will show 99999.
-void squeezeView::printStock()
-{
-    Azahar *myDb = new Azahar;
-    myDb->setDatabase(db);
-    
-    QList<ProductInfo> products = myDb->getAllProducts(); // does not return grouped products!
-    
-    //Header Information
-    PrintLowStockInfo plInfo;
-    plInfo.storeName = myDb->getConfigStoreName();
-    plInfo.storeAddr = myDb->getConfigStoreAddress();
-    plInfo.storeLogo = myDb->getConfigStoreLogo();
-    plInfo.logoOnTop = myDb->getConfigLogoOnTop();
-    plInfo.hTitle    = i18n("Product Stock (excluding groups)");
-    plInfo.hDate     = KGlobal::locale()->formatDateTime(QDateTime::currentDateTime(), KLocale::LongDate);
-    plInfo.hCode     = i18n("Code");
-    plInfo.hDesc     = i18n("Description");
-    plInfo.hQty      = i18n("Stock Qty.");
-    plInfo.hSoldU    = i18n("Sold");
-    plInfo.hUnitStr  = i18n("Units");
-    
-    //each product
-    for (int i = 0; i < products.size(); ++i)
-    {
-        QLocale localeForPrinting;
-        ProductInfo info = products.at(i);
-        QString code  = QString::number(info.code);
-        QString stock = localeForPrinting.toString(info.stockqty,'f',2);
-        QString soldU = localeForPrinting.toString(info.soldUnits,'f',2);
-        
-        QString line  = code +"|"+ info.desc +"|"+ stock +"|"+ info.unitStr +"|"+ soldU;
-        plInfo.pLines.append(line);
-    }
-    
-    if (Settings::smallTicketDotMatrix()) {
-        //     QString printerFile=Settings::printerDevice();
-        //     if (printerFile.length() == 0) printerFile="/dev/lp0";
-        //     QString printerCodec=Settings::printerCodec();
-        //     qDebug()<<"[Printing report on "<<printerFile<<"]";
-        //     qDebug()<<lines.join("\n");
-        //     PrintDEV::printSmallBalance(printerFile, printerCodec, lines.join("\n"));
-    } else if (Settings::smallTicketCUPS()) {
-        qDebug()<<"[Printing report on CUPS small size]";
-        QPrinter printer;
-        printer.setFullPage( true );
-        QPrintDialog printDialog( &printer );
-        printDialog.setWindowTitle(i18n("Print Low Stock Report"));
-        if ( printDialog.exec() ) {
-            PrintCUPS::printSmallLowStockReport(plInfo, printer);
-        } else {
-            //NOTE: This is a proposition:
-            //      If the dialog is accepted (ok), then we print what the user choosed. Else, we print to a file (PDF).
-            //      The user can press ENTER when dialog appearing if the desired printer is the default (or the only).
-            qDebug()<<"User cancelled printer dialog. We export ticket to a file.  ::PrintStock()";
-            QString fn = QString("%1/lemon-printing/").arg(QDir::homePath());
-            QDir dir;
-            if (!dir.exists(fn))
-                dir.mkdir(fn);
-            fn = fn+QString("StockReport__%1.pdf").arg(QDateTime::currentDateTime().toString("dd-MMM-yy"));
-            qDebug()<<fn;
-            
-            printer.setOutputFileName(fn);
-            printer.setPageMargins(0,0,0,0,QPrinter::Millimeter);
-            printer.setPaperSize(QSizeF(72,200), QPrinter::Millimeter); //setting small ticket paper size. 72mm x 200mm
-            
-            PrintCUPS::printSmallLowStockReport(plInfo, printer);
-        }
-    } else { //big printer
-    qDebug()<<"[Printing report on CUPS big size]";
-    QPrinter printer;
-    printer.setFullPage( true );
-    QPrintDialog printDialog( &printer );
-    printDialog.setWindowTitle(i18n("Print Low Stock Report"));
-    if ( printDialog.exec() ) {
-        PrintCUPS::printBigLowStockReport(plInfo, printer);
-    }
-}
-delete myDb;
-}
-
 void squeezeView::printSoldOutProducts()
 {
   Azahar *myDb = new Azahar;
@@ -3393,10 +3145,10 @@ void squeezeView::printSoldOutProducts()
   
   //Header Information
   PrintLowStockInfo plInfo;
-  plInfo.storeName = myDb->getConfigStoreName();
-  plInfo.storeAddr = myDb->getConfigStoreAddress();
-  plInfo.storeLogo = myDb->getConfigStoreLogo();
-  plInfo.logoOnTop = myDb->getConfigLogoOnTop();
+  plInfo.sd.storeName = myDb->getConfigStoreName();
+  plInfo.sd.storeAddr = myDb->getConfigStoreAddress();
+  plInfo.sd.storeLogo = myDb->getConfigStoreLogo();
+  plInfo.sd.logoOnTop = myDb->getConfigLogoOnTop();
   plInfo.hTitle    = i18n("Sold Out Products");
   plInfo.hCode     = i18n("Code");
   plInfo.hDesc     = i18n("Description");
@@ -3433,23 +3185,6 @@ void squeezeView::printSoldOutProducts()
     printDialog.setWindowTitle(i18n("Print Sold Out Products"));
     if ( printDialog.exec() ) {
       PrintCUPS::printSmallLowStockReport(plInfo, printer);
-    } else {
-        //NOTE: This is a proposition:
-        //      If the dialog is accepted (ok), then we print what the user choosed. Else, we print to a file (PDF).
-        //      The user can press ENTER when dialog appearing if the desired printer is the default (or the only).
-        qDebug()<<"User cancelled printer dialog. We export ticket to a file. :: soldOutProducts()";
-        QString fn = QString("%1/lemon-printing/").arg(QDir::homePath());
-        QDir dir;
-        if (!dir.exists(fn))
-            dir.mkdir(fn);
-        fn = fn+QString("SoldOutReport__%1.pdf").arg(QDateTime::currentDateTime().toString("dd-MMM-yy"));
-        qDebug()<<fn;
-        
-        printer.setOutputFileName(fn);
-        printer.setPageMargins(0,0,0,0,QPrinter::Millimeter);
-        printer.setPaperSize(QSizeF(72,200), QPrinter::Millimeter); //setting small ticket paper size. 72mm x 200mm
-        
-        PrintCUPS::printSmallLowStockReport(plInfo, printer);
     }
   } else { //big printer
     qDebug()<<"[Printing report on CUPS big size]";
@@ -3484,9 +3219,9 @@ void squeezeView::printSelectedBalance()
       //print...
       PrintBalanceInfo pbInfo;
       pbInfo.thBalanceId = i18n("Balance Id:%1",info.id);
-      pbInfo.storeName = myDb->getConfigStoreName();
-      pbInfo.storeAddr = myDb->getConfigStoreAddress();
-      pbInfo.storeLogo = myDb->getConfigStoreLogo();
+      pbInfo.sd.storeName = myDb->getConfigStoreName();
+      pbInfo.sd.storeAddr = myDb->getConfigStoreAddress();
+      pbInfo.sd.storeLogo = myDb->getConfigStoreLogo();
       pbInfo.thTitle     = i18n("%1 at Terminal # %2", info.username, info.terminal);
       pbInfo.thDeposit   = i18n("Deposit");
       pbInfo.thIn        = i18n("In");
@@ -3505,7 +3240,7 @@ void squeezeView::printSelectedBalance()
       pbInfo.inAmount   = KGlobal::locale()->formatMoney(info.in, QString(), 2);
       pbInfo.outAmount  = KGlobal::locale()->formatMoney(info.out, QString(), 2);
       pbInfo.cashAvailable=KGlobal::locale()->formatMoney(info.cash, QString(), 2);
-      pbInfo.logoOnTop = myDb->getConfigLogoOnTop();
+      pbInfo.sd.logoOnTop = myDb->getConfigLogoOnTop();
       pbInfo.thTitleCFDetails = i18n("Cash flow Details");
       pbInfo.thCFType    = i18n("Type");
       pbInfo.thCFReason  = i18n("Reason");
@@ -3609,23 +3344,6 @@ void squeezeView::printSelectedBalance()
         printDialog.setWindowTitle(i18n("Print Balance"));
         if ( printDialog.exec() ) {
           PrintCUPS::printSmallBalance(pbInfo, printer);
-        } else {
-            //NOTE: This is a proposition:
-            //      If the dialog is accepted (ok), then we print what the user choosed. Else, we print to a file (PDF).
-            //      The user can press ENTER when dialog appearing if the desired printer is the default (or the only).
-            qDebug()<<"User cancelled printer dialog. We export ticket to a file.";
-            QString fn = QString("%1/lemon-printing/").arg(QDir::homePath());
-            QDir dir;
-            if (!dir.exists(fn))
-                dir.mkdir(fn);
-            fn = fn+QString("balance-%1__%2.pdf").arg(info.id).arg(info.dateTimeStart.date().toString("dd-MMM-yy"));
-            qDebug()<<fn;
-            
-            printer.setOutputFileName(fn);
-            printer.setPageMargins(0,0,0,0,QPrinter::Millimeter);
-            printer.setPaperSize(QSizeF(72,200), QPrinter::Millimeter); //setting small ticket paper size. 72mm x 200mm
-            
-            PrintCUPS::printSmallBalance(pbInfo, printer);
         }
       }
       //end print
@@ -3633,6 +3351,265 @@ void squeezeView::printSelectedBalance()
   }
   delete myDb;
 }
+
+void squeezeView::editStocktake()
+{
+TRACE;
+}
+
+void squeezeView::printStocktake()
+{
+printStocktakeReport();
+}
+
+bool squeezeView::printStocktakeReport()
+{
+  double totallost=0.0;
+  Azahar *myDb = new Azahar;
+  myDb->setDatabase(db);
+
+  QList<StocktakeInfo> stockList;
+  
+  stockList = myDb->getStockTake();
+
+  if(stockList.size()<1) {
+        KMessageBox::detailedError(this, i18n("Error getting countlist."), db.lastError().text(), i18n("Error"));
+        return false ;
+	}
+
+  PrintStocktakeInfo psInfo;
+  psInfo.sd.storeName = myDb->getConfigStoreName();
+  psInfo.sd.storeAddr = myDb->getConfigStoreAddress();
+  psInfo.sd.storeLogo = myDb->getConfigStoreLogo();
+
+  psInfo.hDate     = KGlobal::locale()->formatDateTime(QDateTime::currentDateTime(), KLocale::LongDate);
+  psInfo.hCode     = i18n("Code");
+  psInfo.hAlphacode= i18n("Alphacode");
+  psInfo.hName     = i18n("Name");
+  psInfo.hTitle    = i18n("Inventory Report");
+  psInfo.hQty      = i18n("Difference");
+  psInfo.hCost     = i18n("Cost");
+  psInfo.hCounted  = i18n("Lost");
+
+  psInfo.sd.logoOnTop = myDb->getConfigLogoOnTop();
+  QStringList plines; //for dotmatrix printers on /dev ports
+
+  plines.append(psInfo.hTitle);
+  plines.append(psInfo.hDate);
+  plines.append(psInfo.hCode
+		+"   "+psInfo.hAlphacode
+		+"   "+psInfo.hCategory
+		+"   "+psInfo.hName
+		+"   "+psInfo.hMeasure
+		+"   "+psInfo.hCost
+		+"   "+psInfo.hQty
+		+"   "+psInfo.hCounted);
+  
+  //each transaction...
+  for (int i = 0; i < stockList.size(); ++i)
+  {
+	QLocale localeForPrinting; // needed to convert double to a string better
+	StocktakeInfo info = stockList.at(i);
+	QString line;
+
+DBX(info.price);
+DBX(info.cost);
+DBX(info.qty);
+DBX(info.onstock);
+	line     = QString::number(info.code) 
+	+"|" + info.alphacode
+	+"|" + info.category
+	+"|" + info.name
+	+"|" + info.measure
+	+"|" + KGlobal::locale()->formatMoney(info.cost, QString(), 2)
+	+"|" + QString::number(info.qty-info.onstock)
+	+"|" + KGlobal::locale()->formatMoney(info.cost*(info.qty-info.onstock), QString(), 2)
+	;
+    	psInfo.pLines.append(line);
+	plines.append(QString::number(info.code) 
+	+"    " + info.alphacode
+	+"    " + info.category
+	+"    " + info.name
+	+"    " + info.measure
+	+"    " + KGlobal::locale()->formatMoney(info.cost, QString(), 2)
+	+"    " + QString::number(info.qty-info.onstock)
+	+"    " + KGlobal::locale()->formatMoney(info.cost*(info.qty-info.onstock), QString(), 2)
+	);
+
+	totallost+=info.cost*(info.qty-info.onstock);
+
+	} //for each item
+//    psInfo.hTotal  = QString("%1 : %2").arg(i18n("Total lost")).arg(totallost);
+    psInfo.hTotal  = QString("%1 %2").arg(i18n("Total lost")).arg(KGlobal::locale()->formatMoney(totallost, QString(), 2));
+    qDebug()<<"[Printing report on CUPS big size]";
+    QPrinter printer;
+    printer.setFullPage( true );
+    QPrintDialog printDialog( &printer );
+    printDialog.setWindowTitle(i18n("Print stocktake report"));
+
+    if (printDialog.exec() ) {
+      PrintCUPS::printStocktakeReport(psInfo, printer);
+      delete myDb;
+      return true;
+      }
+
+  delete myDb;
+  return false;
+}
+
+
+bool squeezeView::printStocktakeCount()
+{
+  Azahar *myDb = new Azahar;
+  myDb->setDatabase(db);
+
+  QList<StocktakeInfo> stockList;
+  
+  stockList = myDb->getStockTake();
+
+  if(stockList.size()<1) {
+        KMessageBox::detailedError(this, i18n("Error getting countlist."), db.lastError().text(), i18n("Error"));
+        return false ;
+	}
+
+  PrintStocktakeInfo psInfo;
+  psInfo.sd.storeName = myDb->getConfigStoreName();
+  psInfo.sd.storeAddr = myDb->getConfigStoreAddress();
+  psInfo.sd.storeLogo = myDb->getConfigStoreLogo();
+
+  psInfo.hTitle    = i18n("Inventory Checklist");
+  psInfo.hDate     = KGlobal::locale()->formatDateTime(QDateTime::currentDateTime(), KLocale::LongDate);
+  psInfo.hCode     = i18n("Code");
+  psInfo.hAlphacode= i18n("Alphacode");
+  psInfo.hName     = i18n("Name");
+  psInfo.hQty      = i18n("Quantity");
+  psInfo.hCounted  = i18n("Counted");
+  psInfo.hPrice    = i18n("Price");
+
+  psInfo.sd.logoOnTop = myDb->getConfigLogoOnTop();
+  QStringList plines; //for dotmatrix printers on /dev ports
+
+  plines.append(psInfo.hTitle);
+  plines.append(psInfo.hDate);
+  plines.append(psInfo.hCode
+		+"   "+psInfo.hAlphacode
+		+"   "+psInfo.hCategory
+		+"   "+psInfo.hName
+		+"   "+psInfo.hMeasure
+		+"   "+psInfo.hPrice
+		+"   "+psInfo.hQty
+		+"   "+psInfo.hCounted);
+  
+  //each transaction...
+  for (int i = 0; i < stockList.size(); ++i)
+  {
+	QLocale localeForPrinting; // needed to convert double to a string better
+	StocktakeInfo info = stockList.at(i);
+	QString line;
+
+
+	line     = QString::number(info.code) 
+	+"|" + info.alphacode
+	+"|" + info.category
+	+"|" + info.name
+	+"|" + info.measure
+	+"|" + KGlobal::locale()->formatMoney(info.price, QString(), 2)
+	+"|" + QString::number(info.qty)
+	+"|" + "____________"
+	;
+    	psInfo.pLines.append(line);
+	plines.append(QString::number(info.code) 
+	+"    " + info.alphacode
+	+"    " + info.category
+	+"    " + info.name
+	+"    " + info.measure
+	+"    " + KGlobal::locale()->formatMoney(info.price, QString(), 2)
+	+"    " + info.qty
+	+"    " + "____________"
+	);
+
+	} //for each item
+  
+    qDebug()<<"[Printing report on CUPS big size]";
+    QPrinter printer;
+    printer.setFullPage( true );
+    QPrintDialog printDialog( &printer );
+    printDialog.setWindowTitle(i18n("Print stocktake countlist"));
+
+    if (printDialog.exec() ) {
+      PrintCUPS::printStocktakeCount(psInfo, printer);
+      delete myDb;
+      return true;
+      }
+
+  delete myDb;
+  return false;
+}
+
+void squeezeView::closeStocktake()
+{
+  Azahar *myDb = new Azahar;
+  myDb->setDatabase(db);
+
+  QString takeid;
+
+  int opens=myDb->getCountOpenStockTaking();
+DBX(opens);
+  if(opens<1) {
+	KMessageBox::information(this, i18n("No open stocktake. You may create one using 'Start stocktake'."), i18n("No open stocktake found"));
+        return;
+	}
+
+  int answer = KMessageBox::questionYesNo(this, i18n("Do you really want to close the actual stocktake?"), i18n("Close"));
+  if (answer != KMessageBox::Yes) {
+	return;
+	}
+  takeid=myDb->getLastStockTakingId();
+  if(takeid.isEmpty()) {
+TRACE;
+	KMessageBox::detailedError(this, i18n("Error creating a new stocktake."), db.lastError().text(), i18n("Error"));
+        return;
+	}
+
+DBX(takeid);
+  if(myDb->closeStockTaking(takeid)!=true) {
+TRACE;
+	KMessageBox::detailedError(this, i18n("Error creating a new stocktake."), db.lastError().text(), i18n("Error"));
+        return;
+	}
+
+KMessageBox::information(this, i18n("stocktake closed."), i18n("Done"));
+
+TRACE;
+}
+
+void squeezeView::startStocktake()
+{
+  Azahar *myDb = new Azahar;
+  myDb->setDatabase(db);
+
+  int opens=myDb->getCountOpenStockTaking();
+DBX(opens);
+  if(opens>0) {
+	KMessageBox::information(this, i18n("A stocktake is still under way. The countlist will be printed again."), i18n("New stocktake not possible"));
+	}
+  db.transaction();
+
+  if(opens<=0) {
+	  if(myDb->newStockTaking()!=true) {
+	        KMessageBox::detailedError(this, i18n("Error creating a new stocktake."), db.lastError().text(), i18n("Error"));
+		db.rollback();
+      	  	return;
+		}
+	  }
+  if(printStocktakeCount() != true ) {
+	db.rollback();
+      	return;
+	}
+	
+  db.commit();
+}
+
 
 //LOGS
 void squeezeView::log(const qulonglong &uid, const QDate &date, const QTime &time, const QString &text)
@@ -3709,21 +3686,16 @@ void squeezeView::setupRandomMsgModel()
     ui_mainview.randomMsgTable->setSelectionMode(QAbstractItemView::SingleSelection);
 
     randomMsgModel->select();
-
-
-    //TODO:validator for months
-    //ui_mainview.randomMsgTable->setItemDelegate( );
-    
   }
   ui_mainview.randomMsgTable->resizeColumnsToContents();
 
-  //qDebug()<<"setup RandomMsg.. done, "<<randomMsgModel->lastError();
+  qDebug()<<"setup RandomMsg.. done, "<<randomMsgModel->lastError();
 }
 
 void squeezeView::createRandomMsg()
 {
  if (db.isOpen()) {
-  InputDialog *dlg = new InputDialog(this, true, dialogTicketMsg, i18n("Enter the new ticket message."), 1, 12);
+  InputDialog *dlg = new InputDialog(this, true, dialogTicketMsg, i18n("Enter the new ticket message."));
 
   if (dlg->exec()) {
     Azahar *myDb = new Azahar;
@@ -3736,60 +3708,14 @@ void squeezeView::createRandomMsg()
  }
 }
 
-void squeezeView::createCurrency()
-{
-    if (db.isOpen()) {
-        InputDialog *dlg = new InputDialog(this, false, dialogCurrency, i18n("Enter the new currency"));
-        
-        if (dlg->exec()) {
-            Azahar *myDb = new Azahar;
-            if (!db.isOpen()) openDB();
-            myDb->setDatabase(db);
-            if (!myDb->insertCurrency(dlg->reason, dlg->dValue)) qDebug()<<"Error:"<<myDb->lastError();
-            currenciesModel->select();
-            delete myDb;
-        }
-    }  
-}
-
-void squeezeView::deleteSelectedCurrency()
-{
-    if (db.isOpen()) {
-        QModelIndex index = ui_mainview.tableCurrencies->currentIndex();
-        if (currenciesModel->tableName().isEmpty()) setupCurrenciesModel();
-        if (index == currenciesModel->index(-1,-1) ) {
-            KMessageBox::information(this, i18n("Please select a row to delete, then press the delete button again."), i18n("Cannot delete"));
-        }
-        else  {
-            QString text = currenciesModel->record(index.row()).value("name").toString();
-            Azahar *myDb = new Azahar;
-            myDb->setDatabase(db);
-            qulonglong cId = myDb->getCurrency(text).id;
-            if (cId > 1) {
-                int answer = KMessageBox::questionYesNo(this, i18n("Do you really want to delete the currency '%1'?", text),
-                i18n("Delete"));
-                if (answer == KMessageBox::Yes) {
-                    qulonglong  iD = currenciesModel->record(index.row()).value("id").toULongLong();
-                    if (!currenciesModel->removeRow(index.row(), index)) {
-                        bool d = myDb->deleteCurrency(iD); qDebug()<<"Deleteing currency ("<<iD<<") manually...";
-                        if (d) qDebug()<<"Deletion succed...";
-                    }
-                    currenciesModel->submitAll();
-                    currenciesModel->select();
-                }
-            } else KMessageBox::information(this, i18n("Default currencies cannot be deleted."), i18n("Cannot delete"));
-                    delete myDb;
-        }
-    }
-}
 
 void squeezeView::reSelectModels()
 {
-  qDebug()<<"Updating Models from database...";
   if ( modelsAreCreated() ) {
     productsModel->select();
     measuresModel->select();
     clientsModel->select();
+TRACE;
     usersModel->select();
     transactionsModel->select();
     categoriesModel->select();
@@ -3799,7 +3725,7 @@ void squeezeView::reSelectModels()
     specialOrdersModel->select();
     randomMsgModel->select();
     logsModel->select();
-    currenciesModel->select();
+    providersModel->select();
   }
 }
 

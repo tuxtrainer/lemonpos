@@ -12,5 +12,7 @@ add_subdirectory( images )
 add_subdirectory( squeeze )
 add_subdirectory( database_resources )
 
+add_subdirectory( common )
+
 # MCH: add_subdirectory( doc )
 

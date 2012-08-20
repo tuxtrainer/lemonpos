@@ -1,4 +1,4 @@
-/* commented backslash hides from ie5mac \*/
+/* commented backslash hides from ie5mac \*/ 
 html{
 	height:100%;
 	margin:0;
@@ -9,32 +9,32 @@ html,body {
 	padding:0;
 	margin:0;
         background-color: #63ab23;
-	font-size: 13px;
+	font-size: 11px;
 	font-family: "Trebuchet MS", verdana, sans-serif;
+
 }
-body{
-	text-align:justify;
+body{	
+	text-align:left;
 	min-width:776px;/* for mozilla*/
         background-color: #63ab23;
 	height:100%;
         background:  url(images/bg_4x818.jpg) repeat-x left top;
 }
 #wrapper {
-	background:  url(images/foot_4x200.jpg) repeat-x left bottom; /*FIXED for 200px height*/
+	background:  url(images/foot_4x82.jpg) repeat-x left bottom;
 	_height: 82px;
 }
 
 #outer{
-	height: 100%; /*99.9%;*/
+	height:99.9%;
 	min-height:100%;
 	width:776px;
 	text-align:left;
 	margin:auto;
 	position:relative;
-	overflow:visible; 
+	overflow:visible;
         background:  url(images/inner_776x1.jpg) repeat-y left top;
 }
-
 
 /* mac hide \*/
 * html #outer{
@@ -62,7 +62,14 @@ html>body #outer{
 
 }
 
-
+#ajaxmenu{
+	position:absolute;
+	top:93px;
+	left:0px;
+	width:776px;
+	height:43px;
+	z-index:65;
+}
 #logo {
 	position:absolute;
 	top:5px;
@@ -76,24 +83,22 @@ html>body #outer{
 /* mac hide \*/
 * html #outer, * html #header {width:780px}
 /* end hide*/
-
 #footer {
 	color: white;
 	width:776px;
 	clear:both;
-	height:200px;  /*FIXME 255*/
+	height:255px;
 	text-align:left;
-        position: relative;
 	left:0px;
 	bottom:0px;
-        background: #ff6800; /*url(images/foot_776x82_2.jpg) no-repeat left top;*/
-}
+	position: relative; /*absolute;*/
+        background: /*url(images/foot_776x82_2.jpg) no-repeat left top;*/ #ff6800;
 
+}
 #footer p {
 	margin-top: 10px;
         text-align:left;
 }
-
 /* MCH: Falta el color para las ligas visitadas... y las... */
 #footer p a {
 	text-decoration: none;
@@ -115,8 +120,6 @@ html>body #outer{
 
 div,p  {
 	margin-top:0px;
-        font-size: 13px;
-        font-family: "Trebuchet MS", verdana, sans-serif;
 }/*clear top margin for mozilla*/
 
 #right {
@@ -150,7 +153,7 @@ div,p  {
 }
 #clearfooter {
 	width:100%;
-	height:50px;
+	height:82px;
 	clear:both;
 } /* to clear footer */
 
@@ -164,15 +167,13 @@ html>body #minHeight{
         color:white;
 	z-index: 300;
 	padding-bottom: 7px;
-        padding-top:7px;
-        text-align:justify;
 }
 
 
 
 
 #content h2 {
-	font-size: 16px;
+	font-size: 15px;
 	color: yellow;
 	background:  url(images/bullet-17x13.png) no-repeat left top;
 	padding-left: 19px;
@@ -181,22 +182,16 @@ html>body #minHeight{
 	z-index: 999;
 }
 
-#content h1 {
-  color:#cbf858;
-}
-
 h3#post-  {
-	font-size: 14px;
+	font-size: 12px;
 	color: #618200;
 	background:  url() no-repeat left top;
 	padding-left: 0px;
 }
 
 #content p {
-	font-size: 13px;
-        text-align:justify;
+	font-size: 12px;
 	color: white;
-        margin-top:5px;
 	line-height: 18px;
 	_line-height: 16px;
 }
@@ -220,7 +215,7 @@ h3#post-  {
 
 
 .FSF_searchResults {
-	font-size: 13px;
+	font-size: 12px;
 	color: #444444;
 	line-height: 18px;
 	_line-height: 16px;
@@ -228,7 +223,7 @@ h3#post-  {
 
 
 .FSF_extract {
-	font-size: 13px;
+	font-size: 12px;
 	color: #444444;
 	line-height: 18px;
 	_line-height: 16px;
@@ -240,14 +235,14 @@ h3#post-  {
 }
 
 .FSF_extract {
-	font-size: 13px;
+	font-size: 12px;
 	color: #444444;
 	line-height: 18px;
 	_line-height: 16px;
 }
 
 .highlight {
-	font-size: 13px;
+	font-size: 12px;
 	background-color: #f2f2f2;
 	color: #618200;
 	font-weight: bold;
@@ -337,12 +332,11 @@ img {
 .hide {display: none;}
 
 
-#getitnow  { 
-/*   width:190px; */
-/*   height:200px; */
+#getitnow  { /*#lemontag32:hover*/
+  width:190px;
+  height:200px;
   margin: 0px;
   padding: 0px;
-  text-align:center;
 }
 #getitnow a {
   top:0px;
@@ -359,12 +353,11 @@ img {
 
 #copyFooter {
     position:absolute;
-    top:180px; /*FIXME 220*/
+    top:220px;
     width:90%;
     float:left;
     text-align:center;
     color:white;
-    font-size: 11px;
 }
 
 #copyFooter a, #copyFooter a:visited {

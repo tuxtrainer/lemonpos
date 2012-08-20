@@ -1,23 +1,22 @@
-/***************************************************************************
- *   Copyright (C) 2007-2009 by Miguel Chavez Gamboa                  *
- *   miguel.chavez.gamboa@gmail.com                                        *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
-
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
- ***************************************************************************/
+/**************************************************************************
+*   Copyright © 2007-2010 by Miguel Chavez Gamboa                         *
+*   miguel@lemonpos.org                                                   *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
+***************************************************************************/
 
 #include "loginwindow.h"
 #include "hash.h"
@@ -85,7 +84,6 @@ LoginWindow::LoginWindow(QWidget *parent,
   gridLayout->addWidget(labelPassword, 1, 0, 1, 1);
   gridLayout->addWidget(editPassword, 1, 1, 1, 1);
 
-
   if (mode == LoginWindow::FullScreen) vLayout->addItem(spacerItemTop);
   okLayout->addStretch(100);
   okLayout->addWidget(btnOk);
@@ -98,10 +96,13 @@ LoginWindow::LoginWindow(QWidget *parent,
   if (mode == LoginWindow::FullScreen) editsLayout->addWidget(btnQuit); else btnQuit->hide();
 
   middleLayout->addStretch(200);
-  middleLayout->addWidget(mainImage);
+//  middleLayout->addWidget(mainImage);
+  mainImage->move(mainImage->x(),y()+height()/2-mainImage->height()/2);
   middleLayout->addLayout(editsLayout);
+
   vLayout->addLayout(middleLayout);
   vLayout->addLayout(errorLayout);
+
   if (mode == LoginWindow::FullScreen) vLayout->addItem(spacerItemBottom);
 
   btnOk->setMaximumSize(QSize(140, 27));
@@ -188,34 +189,19 @@ LoginWindow::LoginWindow(QWidget *parent,
 
 /* This is a workaround for the login/password dialog background.
  * Simply draw the pixmap, instead the style painting.
- * NOTE: This may not be styleable... so this can confuse users that wants to change its image via stylesheet.
 */
 void LoginWindow::paintEvent(QPaintEvent* event){
   QDialog::paintEvent(event);
   QPainter painter(this);
   painter.setClipRegion(event->region());
   QString path = KStandardDirs::locate("appdata", "styles/");
-  QPixmap bg; QString fileName;
-  //getting style source.
-  fileName = path + Settings::styleName() + "/" + Settings::styleName() + ".qss";
-  QFile file(fileName);
-  bool op = file.open(QFile::ReadOnly);
-  QString styleSheet = QLatin1String(file.readAll());
-  //replace fakepath to the real path..
-  QString bgName;
-  int indxs = styleSheet.indexOf("]loginBackground");
-  int indxe = styleSheet.indexOf(")", indxs);
-  /*indxe = indxe-1;*/ indxs = indxs+1;
-  bgName = styleSheet.mid(indxs,indxe-indxs);
-  //qDebug()<<" index start:"<<indxs<<" index end:"<<indxe<<" string:"<<bgName<< " OMG: How many times this is updated! (painted)...";
-  
+  QPixmap bg;
 
   switch (currentMode)
   {
     case LoginWindow::FullScreen:
-      //if (QApplication::desktop()->screenGeometry(this) != geometry()) setGeometry(QApplication::desktop()->screenGeometry(this));
-      setWindowState( windowState() | Qt::WindowFullScreen );
-      bg = QPixmap(path + Settings::styleName() + "/" + bgName);
+      if (QApplication::desktop()->screenGeometry(this) != geometry()) setGeometry(QApplication::desktop()->screenGeometry(this));
+      bg = QPixmap(path + Settings::styleName() + "/loginBackground_1280x800.png");
       break;
     case LoginWindow::PasswordOnly:
       bg = QPixmap(path + Settings::styleName() + "/passwordBackground_wide.png");
@@ -404,11 +390,6 @@ void LoginWindow::focusPassword()
 qulonglong LoginWindow::getUserId()
 {
   return userId;
-}
-
-void LoginWindow::reloadUsers()
-{
-    uHash = getUsers();
 }
 
 #include "loginwindow.moc"

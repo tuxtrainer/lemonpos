@@ -1,5 +1,4 @@
-There is a more detailed install manual at the wiki, if you can use it instead.
-There is also a little user guide at the wiki.
+There is an install manual at the wiki:
 
 http://sourceforge.net/apps/mediawiki/lemonpos/
 
@@ -13,7 +12,7 @@ To compile and install:
   cd lemonpos
   mkdir build
   cd build
-  cmake .. -DCMAKE_INSTALL_PREFIX=`kde4-config --prefix`
+  cmake -DCMAKE_INSTALL_PREFIX=/usr ..  #here you put your path to kde4.
   make
   su
   make install
@@ -36,7 +35,7 @@ To compile and install:
   
   /opt/kde4/bin/lemon
   
- * The default and only user and password is (without quotation marks):
+ * The default and only user and password is (without quotes):
  
    username: "admin"
    password: "linux"

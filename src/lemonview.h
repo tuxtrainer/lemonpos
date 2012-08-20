@@ -1,22 +1,22 @@
 /**************************************************************************
- *   Copyright © 2007-2011 by Miguel Chavez Gamboa                         *
- *   miguel@lemonpos.org                                                   *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
- ***************************************************************************/
+*   Copyright © 2007-2010 by Miguel Chavez Gamboa                         *
+*   miguel@lemonpos.org                                                   *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
+***************************************************************************/
 
 #ifndef LEMONVIEW_H
 #define LEMONVIEW_H
@@ -24,10 +24,6 @@
 class QStringList;
 class QTableWidgetItem;
 class LoginWindow;
-class MibitTip;
-class MibitPasswordDialog;
-class MibitFloatPanel;
-class MibitNotifier;
 
 #include <qwidget.h>
 #include <QList>
@@ -61,31 +57,29 @@ public:
     int getUserRole(qulonglong id);
     int getLoggedUserRole() { return loggedUserRole; }
     QString getCurrentTransactionString();
-    qulonglong     getCurrentTransaction();
+    qulonglong     getCurrentTransactionId();
     QList<int> getTheSplitterSizes();
-    QList<int> getTheGridSplitterSizes();
-    int rmSeason;
-    QList<qulonglong> rmExcluded;
 
     void setTheSplitterSizes(QList<int> s);
-    void setTheGridSplitterSizes(QList<int> s);
     bool isTransactionInProgress() { return transactionInProgress;}
     void cancelByExit();
     bool canStartSelling() {return operationStarted;}
     bool validAdminUser();
-    void corteDeCaja(); //to allow lemon class to doit
-
-    QWidget *frameLeft, *frame;
+    qulonglong createNewBalance();
+    qulonglong updateBalance();
+    qulonglong closeBalance();
+    
   private:
     Ui::mainview ui_mainview;
     QString loggedUser;
     QString loggedUserName;
+    QString ticketMsg;
+    QString GserialNo;
     int     loggedUserRole;
     qulonglong loggedUserId;
-    qulonglong currentTransaction;
-    qulonglong currentBalanceId;
+    TransactionInfo currentTransaction;
+    BalanceInfo currentBalance;
     double  totalSum;
-    double  totalTax; // in money.
     Gaveta *drawer;
     bool   drawerCreated;
     bool   modelsCreated;
@@ -96,52 +90,24 @@ public:
     LoginWindow *dlgPassword;
     QHash<qulonglong, ProductInfo> productsHash;
     QSqlTableModel *productsModel;
-    QSqlQueryModel *clientsModel; //for the credits panel, completer.
     QHash<QString, int> categoriesHash;
     ClientInfo clientInfo;
     QHash<QString, ClientInfo> clientsHash;
     qulonglong buyPoints;
     double discMoney;
-    double globalDiscount; //%
-    double totalSumWODisc;
-    double subTotalSum;
-    double reservationPayment;
     QDateTime transDateTime;
-    double lastDiscount;
-    bool completingOrder;
-
-    bool availabilityDoesNotMatters;
-    bool doNotAddMoreItems;
-    bool finishingReservation;
-    bool startingReservation;
-    qulonglong reservationId;
-
-    QHash<qulonglong, SpecialOrderInfo> specialOrders;
     
     QSqlRelationalTableModel *historyTicketsModel;
 
-    MibitTip *tipCode, *tipAmount;
-    MibitPasswordDialog *lockDialog;
-    MibitFloatPanel *currencyPanel;
-    MibitFloatPanel *discountPanel;
-    MibitFloatPanel *creditPanel;
-    MibitNotifier *notifierPanel;
-
-    double oDiscountMoney;
-
-    ClientInfo crClientInfo;
-    CreditInfo crInfo;
-
-    QDoubleValidator *valPercentage;
-    QDoubleValidator *valMoney;
-    
+    QSqlQueryModel *productsFilterModel;
 
     void loadIcons();
     void setUpInputs();
     void setupModel();
-    void setupClientsModel();
-
-    RoundingInfo roundUsStandard(const double &number);
+    void printTicketSmallPrinterCUPS(TicketInfo ticket,QString tickettext);
+    void printTicketBigPrinterCUPS(TicketInfo ticket,QString tickettext);
+    double calcGrossTax(double price, double taxrate);
+    void doNotify(QString icon,QString msg);
 
   signals:
     /**
@@ -192,10 +158,7 @@ public:
 
     void signalEnableUI();
     void signalDisableUI();
-    void signalEnableLogin();
-    void signalDisableLogin();
     void signalEnableStartOperationAction();
-    void signalDisableStartOperationAction();
 
 
   private slots:
@@ -204,6 +167,10 @@ public:
      * Slot used to show the "enter code" widget
      */
     void showEnterCodeWidget();
+    /**
+     * Slot used to decrease amount with hotkey
+     */
+    void decreaseAmount();
     /**
      * Slot used to show the "search item" widget
      */
@@ -224,7 +191,6 @@ public:
      * Slot used to insert an item into the buy list, do the real insert
      */
     int doInsertItem(QString itemCode, QString itemDesc, double itemQty, double itemPrice, double itemDiscount, QString itemUnits);
-    void updateItem(ProductInfo prod);
     /**
      * Slot used to delete the current item.
     */
@@ -278,7 +244,7 @@ public:
   /**
      * Slot used to print the ticket, show a frame message and wait a few seconds...
    **/
-    void printTicket(TicketInfo ticket);
+    void printTicket(TicketInfo ticket,QString ticketText);
   /**
      * Slot used to print balance for the user.
    */
@@ -287,8 +253,7 @@ public:
   /**
      * This slot is used to make a balance for the user (initial + in - out = drawer amount).
    */
-    //void corteDeCaja();  GONE TO PUBLIC
-    void doCorteDeCaja();
+    void corteDeCaja();
     void endOfDay();
 
     void startAgain();
@@ -315,22 +280,26 @@ public:
     void setupClients();
     void timerTimeout();
     void clearLabelSearchMsg();
+    void clearLabelInsertCodeMsg();
+    void clearLabelPayMsg();
     void goSelectCardAuthNumber();
 
 
     void listViewOnMouseMove(const QModelIndex & index);
     void listViewOnClick( const QModelIndex & index );
-    void clientChanged();
+    void comboClientsOnChange();
     void updateClientInfo();
     void updateModelView();
     void showProductsGrid(bool show);
     void showPriceChecker();
     void hideProductsGrid();
     void populateCategoriesHash();
-    void populateCardTypes();
     void setFilter();
     void showChangeDate();
+    void editClient();
 
+    bool askSerialNo();
+    void showTicketText();
     void showReprintTicket();
     void setupTicketView();
     void setupHistoryTicketsModel();
@@ -343,56 +312,15 @@ public:
     void cashOut();
     void cashIn();
     void cashAvailable();
+    void modifyProductsFilterModel(); //this feature is only present on 0.7.4 - 0.8 but not in SVN. It is for search combobox - biel
 
     void freezeWidgets();
     void unfreezeWidgets();
-    void addSpecialOrder();
-    void specialOrderComplete();
-    void lockScreen();
-    void unlockScreen();
-    void suspendSale();
-    void resumeSale();
-    void changeSOStatus();
-
-    void updateTransaction();
-    void updateBalance(bool finish); //implies the drawer content
-    void insertBalance();
-
-    void occasionalDiscount();
-    void applyOccasionalDiscount();
-    void changeDiscValidator();
-    double getTotalQtyOnList(const ProductInfo &info);
 
     void log(const qulonglong &uid, const QDate &date, const QTime &time, const QString &text);
+    void initPrintTicketInfo(PrintTicketInfo *,TicketInfo *,double tDisc);
     void syncSettingsOnDb();
 
-    void getCurrencies();
-    void comboCurrencyOnChange();
-    void doCurrencyConversion();
-    void acceptCurrencyConversion();
-
-    void reserveItems();
-    void suspendReservation();
-    void resumeReservation();
-    void postponeReservation();
-    void addReservationPayment(); //used to add a payment to a reservation without paying it totally.
-    void insertCashInForReservationPayment(const qulonglong &rid, const double &amount);
-
-    void showCredits();
-    void filterClientForCredit();
-    void filterClient();
-    void calculateTotalForClient();
-    void showCreditPayment();
-    void tenderedChanged();
-    void doCreditPayment();
-    void insertCashInForCredit(const CreditInfo &credit, const double &amount);
-    void printCreditReport();
-
-    void qtyChanged(QTableWidgetItem *item);
-    void modifyClientsFilterModel();
-    void modifyClientsFilterModelB();
-    void verifyDiscountEntry();
-    void createClient();
 };
 
 #endif // LEMONVIEW_H

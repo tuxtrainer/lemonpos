@@ -1,33 +1,30 @@
 /**************************************************************************
- *   Copyright © 2007-2011 by Miguel Chavez Gamboa                         *
- *   miguel@lemonpos.org                                                   *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
- ***************************************************************************/
+*   Copyright © 2007-2010 by Miguel Chavez Gamboa                         *
+*   miguel@lemonpos.org                                                   *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
+***************************************************************************/
 #include <KLocale>
 #include <KMessageBox>
 #include <KFileDialog>
-#include <kiconloader.h>
-#include <kstandarddirs.h>
 
 #include <QByteArray>
 #include <QRegExpValidator>
 
 #include "../../dataAccess/azahar.h"
-#include "../../mibitWidgets/mibittip.h"
 #include "purchaseeditor.h"
 
 
@@ -48,10 +45,7 @@ PurchaseEditor::PurchaseEditor( QWidget *parent )
     ui->btnAddItem->setDefault(true);
 
     //Set Validators for input boxes
-    //QRegExp regexpC("[0-9]{1,13}"); //(EAN-13 y EAN-8) .. y productos sin codigo de barras?
-    //QRegExpValidator * validatorEAN13 = new QRegExpValidator(regexpC, this);
-    //PATCHED on June 6, 2011. To support alphacodes here also.
-    QRegExp regexpC("[0-9]*[A-Za-z_0-9\\\\/\\-]{0,30}"); // Instead of {0,13} fro EAN13, open for up to 30 chars.
+    QRegExp regexpC("[0-9]{1,13}"); //(EAN-13 y EAN-8) .. y productos sin codigo de barras?
     QRegExpValidator * validatorEAN13 = new QRegExpValidator(regexpC, this);
     ui->editCode->setValidator(validatorEAN13);
     ui->editTax->setValidator(new QDoubleValidator(0.00, 999999999999.99, 3,ui->editTax));
@@ -61,7 +55,7 @@ PurchaseEditor::PurchaseEditor( QWidget *parent )
     ui->editFinalPrice->setValidator(new QDoubleValidator(0.00,999999999999.99, 3, ui->editFinalPrice));
     ui->editItemsPerBox->setValidator(new QDoubleValidator(0.00,999999999999.99, 2, ui->editItemsPerBox));
     ui->editPricePerBox->setValidator(new QDoubleValidator(0.00,999999999999.99, 2, ui->editPricePerBox));
-    ui->editQty->setValidator(new QDoubleValidator(-99999.00,999999999999.99, 2, ui->editQty));
+    ui->editQty->setValidator(new QDoubleValidator(0.00,999999999999.99, 2, ui->editQty));
 
     connect( ui->btnPhoto          , SIGNAL( clicked() ), this, SLOT( changePhoto() ) );
     connect( ui->btnCalculatePrice , SIGNAL( clicked() ), this, SLOT( calculatePrice() ) );
@@ -71,8 +65,7 @@ PurchaseEditor::PurchaseEditor( QWidget *parent )
     connect( ui->editTax , SIGNAL( textEdited(const QString &) ), this, SLOT( calculatePrice() ) );
     connect( ui->editExtraTaxes , SIGNAL( textEdited(const QString &) ), this, SLOT( calculatePrice() ) );
     connect( ui->editUtility , SIGNAL( textEdited(const QString &) ), this, SLOT( calculatePrice() ) );
-    connect( ui->editCode, SIGNAL(textEdited(const QString &)), SLOT(timerCheck()));
-    connect( ui->editCode, SIGNAL(returnPressed()), SLOT(checkIfCodeExists()));
+    connect( ui->editCode, SIGNAL(textEdited(const QString &)), SLOT(checkIfCodeExists()));
     connect( ui->editCode, SIGNAL(returnPressed()), ui->editQty, SLOT(setFocus()));
     connect( ui->btnAddItem, SIGNAL( clicked() ), this, SLOT( addItemToList() ) );
     connect(ui->groupBoxedItem, SIGNAL(toggled(bool)), this, SLOT(focusItemsPerBox(bool)) );
@@ -80,21 +73,14 @@ PurchaseEditor::PurchaseEditor( QWidget *parent )
     connect(ui->btnRemoveItem, SIGNAL( clicked() ), SLOT( deleteSelectedItem() ) );
 
     ui->chIsAGroup->setDisabled(true);
-
-    
-    QString path = KStandardDirs::locate("appdata", "styles/");
-    path = path+"tip.svg";
-    errorPanel = new MibitTip(this, ui->widgetPurchase, path, DesktopIcon("dialog-warning",32) );
     
 
-    lastCode = "";
     status = estatusNormal;
     productExists = false;
     productsHash.clear();
     resetEdits();
     totalBuy = 0.0;
     itemCount = 0.0;
-    totalTaxes = 0.0;
     QTimer::singleShot(500, this, SLOT(setupTable()));
 }
 
@@ -202,7 +188,6 @@ QString PurchaseEditor::getMeasureStr(int c)
   Azahar *myDb = new Azahar;
   myDb->setDatabase(db);
   QString str = myDb->getMeasureStr(c);
-  delete myDb;
   return str;
 }
 
@@ -278,78 +263,34 @@ void PurchaseEditor::calculatePrice()
 
   if (costOk && profitOk && taxOk && etaxOk ) {
   //TODO: if TAXes are included in cost...
-  double cWOTax = 0;
+  double cost    = ui->editCost->text().toDouble();
+  double profit = ui->editUtility->text().toDouble();
   double tax     = ui->editTax->text().toDouble();
   double tax2    = ui->editExtraTaxes->text().toDouble();
-  double utility = ui->editUtility->text().toDouble();
-
-  Azahar *myDb = new Azahar;
-  myDb->setDatabase(db);
-
-  // We assume that tax rules for prices also apply to costs.
-  if (myDb->getConfigTaxIsIncludedInPrice())
-    cWOTax= (ui->editCost->text().toDouble())/(1+((tax+tax2)/100));
-  else
-    cWOTax = ui->editCost->text().toDouble();
-  
-  double cost    = cWOTax;
-  utility = ((utility/100)*cost);
-  double cu=cost+utility;
-  //We need the tax recalculated from the costs+utility, this time taxes are expressed in $
-  tax     = ((tax/100)*(cost)); ///NOTE fixed:when paying for a product we pay taxes for the cost not the cost+profit
-  tax2    = ((tax2/100)*(cost));
-
+  //Utility is calculated before taxes... Taxes include profit... is it ok?
+  profit = ((profit/100)*cost);
+  double cu=cost+profit;
+  tax     = ((tax/100)*(cu));
+  tax2    = ((tax2/100)*(cu));
 
   if (ui->groupBoxedItem->isChecked()){
     double itemsPerBox = 0;
     double pricePerBox = 0;
     if (!ui->editItemsPerBox->text().isEmpty()) itemsPerBox = ui->editItemsPerBox->text().toDouble();
     if (!ui->editPricePerBox->text().isEmpty()) pricePerBox = ui->editPricePerBox->text().toDouble();
-    if (!ui->editItemsPerBox->text().isEmpty() || !ui->editPricePerBox->text().isEmpty()) return;
-    tax     = ui->editTax->text().toDouble();
-    tax2    = ui->editExtraTaxes->text().toDouble();
-    if (myDb->getConfigTaxIsIncludedInPrice())
-      cWOTax= (pricePerBox/itemsPerBox)/(1+((tax+tax2)/100));
-    else
-      cWOTax = pricePerBox/itemsPerBox;
-
-    cost = cWOTax;
+    if (itemsPerBox>0 || pricePerBox>0) cost = pricePerBox/itemsPerBox;
     ui->editCost->setText(QString::number(cost));
-    utility = ((ui->editUtility->text().toDouble()/100)*cost);
-    cu = cost + utility;
-    tax     = ((tax/100)*(cost));///NOTE fixed:when paying for a product we pay taxes for the cost not the cost+profit
-    tax2    = ((tax2/100)*(cost));
+    profit = ((ui->editUtility->text().toDouble()/100)*cost);
+    cu = cost + profit;
+    tax     = ((ui->editTax->text().toDouble()/100)*(cu));
+    tax2    = ((ui->editExtraTaxes->text().toDouble()/100)*(cu));
     finalPrice = cu + tax + tax2;
-    
   }
-  else finalPrice = cost + utility + tax + tax2;
-
-  qDebug()<<"cWOTax ="<<cWOTax<<" tax1="<<tax<<" tax2="<<tax2<<" FinalPrice:"<<finalPrice;
+  else finalPrice = cost + profit + tax + tax2;
 
   ui->editFinalPrice->setText(QString::number(finalPrice));
   ui->editFinalPrice->selectAll();
-  delete myDb;
   }
-}
-
-
-void PurchaseEditor::timerCheck()
-{
-    if (ui->editCode->text() == lastCode) {
-        //ok no changes. get this product
-        checkIfCodeExists();
-    } else {
-        lastCode = ui->editCode->text();
-        QTimer::singleShot(1000, this, SLOT(justCheck()));
-    }
-}
-
-void PurchaseEditor::justCheck()
-{
-    if (ui->editCode->text() == lastCode) {
-        //ok no changes one second ago in code. get this product
-        checkIfCodeExists();
-    }
 }
 
 
@@ -361,19 +302,19 @@ void PurchaseEditor::checkIfCodeExists()
   QString codeStr = ui->editCode->text();
   if (codeStr.isEmpty()) codeStr = "0";
   ProductInfo pInfo = myDb->getProductInfo(codeStr);
-  if (pInfo.code ==0 && pInfo.desc=="Ninguno") productExists = false;
+  if (pInfo.code ==0 && pInfo.desc=="none") productExists = false;
   if (pInfo.code > 0) {
     status = estatusMod;
     productExists = true;
     qtyOnDb  = pInfo.stockqty;
-    qDebug()<<"Product code:"<<pInfo.code<<" Product AlphaCode:"<<pInfo.alphaCode<<" qtyOnDb:"<<qtyOnDb;
     //Prepopulate dialog...
     ui->editDesc->setText(pInfo.desc);
     setCategory(pInfo.category);
     setMeasure(pInfo.units);
     ui->editCost->setText(QString::number(pInfo.cost));
     ui->editTax->setText(QString::number(pInfo.tax));
-    ui->editExtraTaxes->setText(QString::number(pInfo.extratax));
+    //FIXME: add tax models
+    //ui->editExtraTaxes->setText(QString::number(pInfo.extratax));
     ui->editFinalPrice->setText(QString::number(pInfo.price));
     ui->editPoints->setText(QString::number(pInfo.points));
     ui->chIsAGroup->setChecked(pInfo.isAGroup);
@@ -387,16 +328,14 @@ void PurchaseEditor::checkIfCodeExists()
     qDebug()<< "no product found with code "<<codeStr;
     qulonglong codeSaved = getCode();
     resetEdits();
-    if (codeSaved > 0) //do not set code "0" in the input box, just let it empty,
-        setCode(codeSaved);
+    setCode(codeSaved);
   }
 }
 
 
 void PurchaseEditor::slotButtonClicked(int button)
 {
-    if (button == KDialog::Ok &&  productsHash.count() > 0) { //allowing negative numbers to return items to providers.  itemCount != 0 &&
-                                                              //NOTE: the only problem is when decrementing more than the stock, which will end with 0, not negative stock.
+  if (button == KDialog::Ok && itemCount>0) {
     if (status == estatusNormal) QDialog::accept();
     else {
       qDebug()<< "Button = OK, status == statusMOD";
@@ -434,24 +373,15 @@ void PurchaseEditor::addItemToList()
   else if (ui->editTax->text().isEmpty()) ui->editTax->setFocus();
   else if (ui->editFinalPrice->text().isEmpty()) ui->editFinalPrice->setFocus();
   else if (ui->editQty->text().isEmpty() || ui->editQty->text()=="0") ui->editQty->setFocus();
-  else if ((ui->editUtility->text().isEmpty() && ui->editFinalPrice->text().isEmpty()) || ui->editFinalPrice->text().toDouble() < ui->editCost->text().toDouble() ) ui->editFinalPrice->setFocus();
+  else if ((ui->editUtility->text().isEmpty() && ui->editFinalPrice->text().isEmpty()) || ui->editFinalPrice->text().toDouble()<=ui->editCost->text().toDouble() ) ui->editFinalPrice->setFocus();
   else if (ui->groupBoxedItem->isChecked() && (ui->editItemsPerBox->text().isEmpty() || ui->editItemsPerBox->text()=="0"))  ui->editItemsPerBox->setFocus();
   else if (ui->groupBoxedItem->isChecked() && (ui->editPricePerBox->text().isEmpty() || ui->editPricePerBox->text()=="0")) ui->editPricePerBox->setFocus();
   else ok = true;
 
   if (ok) {
-    ProductInfo info = myDb->getProductInfo(  getCodeStr() );
-
-    //if is an Unlimited stock product, do not allow to add to the purchase.
-    if (info.hasUnlimitedStock)  {
-        errorPanel->showTip(i18n("<b>Unlimited Stock Products cannot be purchased.</b>"), 10000);
-        return;
-    }
-    
-    //FIX BUG: dont allow enter new products.. dont know why? new code on 'continue' statement.
-    if (info.code == 0) { //new product
+    ProductInfo info = myDb->getProductInfo(QString::number(getCode()));
+    if (info.code == 0) {
       info.code = getCode();
-      info.stockqty = 0; //new product
       info.lastProviderId=1; //for now.. fixme in the future
     }
     //update p.info from the dialog
@@ -459,14 +389,21 @@ void PurchaseEditor::addItemToList()
     info.price   = getPrice();
     info.cost    = getCost();
     info.tax     = getTax1();
-    info.extratax= getTax2();
+    //FIXME: add tax models
+    //info.extratax= getTax2();
     info.photo   = getPhotoBA();
     info.units   = getMeasureId();
     info.category= getCategoryId();
-    info.utility = getProfit();
+    info.profit  = getProfit();
     info.points  = getPoints();
+    info.stockqty= getQtyOnDb();
     info.purchaseQty = getPurchaseQty();
+    double finalCount = info.purchaseQty + info.stockqty; // WHAT FOR??
     info.validDiscount = productExists; //used to check if product is already on db.
+    //FIXME: NEXT 2 lines are temporal remove on 0.8 version
+    //info.alphaCode = "-NA-";
+    //FIXME: last providerId for an existent must be gotten from db since we dont have that field here. Provide a combobox to select one and a button to add a new one.
+    //info.lastProviderId = 1;
 
     if (info.isAGroup) {
       // get each product fo the group/pack
@@ -483,7 +420,7 @@ void PurchaseEditor::addItemToList()
       }//for each element
     } else insertProduct(info);
 
-    //resetEdits();
+    resetEdits();
     ui->editCode->setFocus();
   }
 }
@@ -494,63 +431,15 @@ void PurchaseEditor::insertProduct(ProductInfo info)
   bool existed = false;
   if (info.code>0) {
     if (productsHash.contains(info.code)) {
-        info = productsHash.take(info.code); //re get it from hash
-        double finalStock = info.purchaseQty + info.stockqty;
-        double suggested;
-        if (-info.stockqty == 0)
-            suggested = 1;
-        else
-            suggested = -info.stockqty;
-        qDebug()<<"Purchase Qty:"<<info.purchaseQty<<" product stock:"<<info.stockqty<<" final Stock:"<<finalStock;
-        if (finalStock < 0) {
-            //this cannot be saved, negative stock is not allowed in database.
-            qDebug()<<"Cannot be negative stock!, suggested purchase:"<<suggested;
-            //launch a message
-            errorPanel->showTip(i18n("<b>Stock cannot go negative.</b> The <i>minimum</i> purchase can be <b>%1</b>", suggested), 10000);
-            setPurchaseQty(suggested);
-            ui->editQty->setFocus();
-            return;
-        }
-        info.purchaseQty += getPurchaseQty();
-        itemCount += getPurchaseQty();
-        totalBuy = totalBuy + info.cost*getPurchaseQty();
-        existed = true;
+      info = productsHash.take(info.code); //re get it from hash
+      info.purchaseQty += getPurchaseQty();
+      itemCount += getPurchaseQty();
+      totalBuy = totalBuy + info.cost*getPurchaseQty();
+      existed = true;
     } else {
-        double finalStock = info.purchaseQty + info.stockqty;
-        double suggested;
-        if (-info.stockqty == 0)
-            suggested = 1;
-        else
-            suggested = -info.stockqty;
-        qDebug()<<"Purchase Qty:"<<info.purchaseQty<<" product stock:"<<info.stockqty<<" final Stock:"<<finalStock;
-        if (finalStock < 0) {
-            //this cannot be saved, negative stock is not allowed in database.
-            qDebug()<<"Cannot be negative stock!, suggested purchase:"<<suggested;
-            //launch a message
-            errorPanel->showTip(i18n("<b>Stock cannot go negative.</b> The <i>minimum</i> purchase can be <b>%1</b>", suggested), 10000);
-            setPurchaseQty(suggested);
-            ui->editQty->setFocus();
-            return;
-        }
-        itemCount += info.purchaseQty;
-        totalBuy = totalBuy + info.cost*info.purchaseQty;
+      itemCount += info.purchaseQty;
+      totalBuy = totalBuy + info.cost*info.purchaseQty;
     }
-    //its ok to reset edits now...
-    resetEdits();
-
-    //calculate taxes for this item. Calculated from the costs.
-    Azahar *myDb = new Azahar;
-    myDb->setDatabase(db);
-    double cWOTax = 0;
-    if (myDb->getConfigTaxIsIncludedInPrice())
-      cWOTax= (info.cost)/(1+((info.tax+info.extratax)/100));
-    else
-      cWOTax = info.cost;
-    double tax = cWOTax*info.purchaseQty*(info.tax/100);
-    double tax2= cWOTax*info.purchaseQty*(info.extratax/100);
-    totalTaxes += tax + tax2; // add this product taxes to the total taxes in the purchase.
-    qDebug()<<"Total taxes updated:"<<totalTaxes<<" Taxes for this product:"<<tax+tax2;
-    delete myDb;
     
     double finalCount = info.purchaseQty + info.stockqty;
     info.groupElementsStr=""; //grouped products cannot be a group.
@@ -609,19 +498,6 @@ void PurchaseEditor::deleteSelectedItem() //added on dec 3, 2009
       //update qty and $ of the purchase
       totalBuy  -= (info.cost*info.purchaseQty);
       itemCount -= info.purchaseQty;
-      //calculate taxes for this item. Calculated from the costs.
-      Azahar *myDb = new Azahar;
-      myDb->setDatabase(db);
-      double cWOTax = 0;
-      if (myDb->getConfigTaxIsIncludedInPrice())
-        cWOTax= (info.cost)/(1+((info.tax+info.extratax)/100));
-      else
-        cWOTax = info.cost;
-      double tax = cWOTax*info.purchaseQty*(info.tax/100);
-      double tax2= cWOTax*info.purchaseQty*(info.extratax/100);
-      totalTaxes = totalTaxes - tax - tax2;
-      qDebug()<<"Total taxes updated:"<<totalTaxes;
-      delete myDb;
       ui->groupBox->setTitle( i18n("Items in this purchase [ %1  items,  %2 ]",itemCount,
                                    KGlobal::locale()->formatMoney(totalBuy, QString(), 2)
                                    ) );

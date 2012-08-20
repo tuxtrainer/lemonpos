@@ -1,23 +1,22 @@
-/***************************************************************************
- *   Copyright (C) 2007-2009 by Miguel Chavez Gamboa                       *
- *   miguel.chavez.gamboa@gmail.com                                        *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
-
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
- ***************************************************************************/
+/**************************************************************************
+*   Copyright © 2007-2010 by Miguel Chavez Gamboa                         *
+*   miguel@lemonpos.org                                                   *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
+**************************************************************************/
 
 #include <QtGui>
 #include <QtSql>
@@ -29,29 +28,29 @@
 
 #include "usersdelegate.h"
 
+#include "../../src/structs.h"
+
 void UsersDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
                          const QModelIndex &index) const
 {
+
     //painting background when selected...
     //QPalette::ColorGroup cg = option.state & QStyle::State_Enabled
     //    ? QPalette::Normal : QPalette::Disabled;
 
     //Painting frame
     painter->setRenderHint(QPainter::Antialiasing);
-    QString pixName;
-
-    if (option.state & QStyle::State_Selected)
-      pixName = KStandardDirs::locate("appdata", "images/itemBox_selected.png");
-    else
-      pixName = KStandardDirs::locate("appdata", "images/itemBox.png");
-    
+    QString pixName = KStandardDirs::locate("appdata", "images/itemBox.png");
     painter->drawPixmap(option.rect.x()+5,option.rect.y()+5, QPixmap(pixName));
 
     //get item data
     const QAbstractItemModel *model = index.model();
     int row = index.row();
-    QModelIndex nameIndex = model->index(row, 1);
-    QString name = model->data(nameIndex, Qt::DisplayRole).toString();
+    QModelIndex nameIndex = model->index(row, 4);
+    QString name=model->data(nameIndex, Qt::DisplayRole).toString();
+
+    if(name.isEmpty()) name=i18n("anonymius");
+
     QByteArray pixData = model->data(index, Qt::DisplayRole).toByteArray();
 
     //preparing photo to paint it...
@@ -95,15 +94,17 @@ void UsersDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
       int excess = strSize-boxSize;
       int charEx = (excess/aproxPerChar)+2;
       nameToDisplay = name.left(name.length()-charEx-5) +"...";
+      //qDebug()<<"Text does not fit, strSize="<<strSize<<" boxSize:"
+      //<<boxSize<<" excess="<<excess<<" charEx="<<charEx<<"nameToDisplay="<<nameToDisplay;
     }
     painter->setFont(font);
     if (option.state & QStyle::State_Selected) {
       painter->setPen(Qt::yellow);
-      painter->drawText(option.rect.x()+10,option.rect.y()+138, 150,20,  Qt::AlignCenter, nameToDisplay);
+      painter->drawText(option.rect.x()+10,option.rect.y()+145, 150,20,  Qt::AlignCenter, nameToDisplay);
     }
     else {
       painter->setPen(Qt::white);
-      painter->drawText(option.rect.x()+10,option.rect.y()+138, 150,20,  Qt::AlignCenter, nameToDisplay);
+      painter->drawText(option.rect.x()+10,option.rect.y()+145, 150,20,  Qt::AlignCenter, nameToDisplay);
     }
 
 }

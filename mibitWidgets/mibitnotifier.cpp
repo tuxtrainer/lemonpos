@@ -1,22 +1,22 @@
-/***************************************************************************
- *   Copyright (C) 2009 by Miguel Chavez Gamboa                            *
- *   miguel@lemonpos.org                                                   *
- *                                                                         *
- *   This library is free software; you can redistribute it and/or         *
- *   modify it under the terms of the GNU Lesser General Public            *
- *   License as published by the Free Software Foundation; either          *
- *   version 2 of the License, or (at your option) any later version.      *
- *                                                                         *
- *   This library is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU Lesser General  Public License for more details.                  *
- *                                                                         *
- *   You should have received a copy of the GNU Lesser General  Public     *
- *   License along with this program; if not, write to the                 *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
- ***************************************************************************/
+/**************************************************************************
+*   Copyright © 2009-2010 by Miguel Chavez Gamboa                         *
+*   miguel@lemonpos.org                                                   *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
+***************************************************************************/
 
 #include "mibitnotifier.h"
 
@@ -60,12 +60,9 @@ MibitNotifier::MibitNotifier(QWidget *parent, const QString &file, const QPixmap
     message->setWordWrap(true);
     message->setAlignment(Qt::AlignJustify|Qt::AlignVCenter);
     message->setMargin(10);
-    QSizePolicy sizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
-    sizePolicy.setHeightForWidth(message->sizePolicy().hasHeightForWidth());
-    message->setSizePolicy(sizePolicy);
 
     hLayout->addWidget(img,0,Qt::AlignLeft);
-    hLayout->addWidget(message,1,Qt::AlignJustify);
+    hLayout->addWidget(message,1,Qt::AlignLeft);
 
     timeLine  = new QTimeLine(animRate, this);
     connect(timeLine, SIGNAL(frameChanged(int)), this, SLOT(animate(int)));
@@ -77,10 +74,7 @@ void MibitNotifier::showNotification( const QString &msg, const int &timeToLive)
     /// Warning: if a tip is showing, if another showTip() is called, it is ignored.
     if (timeLine->state() == QTimeLine::NotRunning && !m_canClose /*size().height() <= 0*/) {
         //set default msg if the sent is empty.
-        if (!msg.isEmpty()) {
-            setMessage( msg );
-            message->setMinimumWidth(maxWidth-70);
-        } else setMessage(message->text()); 
+        if (msg.isEmpty()) setMessage(message->text()); else setMessage( msg );
         //change svg skin if is not on top.
         if (!m_onTop) setSVG("rotated_"+m_fileName); else setSVG(m_fileName);
         setGeometry(-1000,-1000,0,0);

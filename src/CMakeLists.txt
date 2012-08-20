@@ -12,24 +12,14 @@ set(lemon_SRCS
    loginwindow.cpp
    productdelegate.cpp
    misc.cpp
-   specialordereditor.cpp
    ../dataAccess/azahar.cpp
+   ../common/clienteditor.cpp
    pricechecker.cpp
    ticketpopup.cpp
    ../printing/print-dev.cpp
    ../printing/print-cups.cpp
    ../mibitWidgets/mibitfloatpanel.cpp
    ../mibitWidgets/mibitlineedit.cpp
-   ../mibitWidgets/mibittip.cpp
-   ../mibitWidgets/mibitpassworddlg.cpp
-   ../mibitWidgets/mibitnotifier.cpp
-   soselector.cpp
-   sostatus.cpp
-   resume.cpp
-   reservations.cpp
-   saleqtydelegate.cpp
-   ../squeeze/src/clienteditor.cpp
-   #printers/sp500.cpp
  )
 
 #qt4_add_dbus_adaptor(lemon_SRCS org.kde.lemon.lemon.xml lemon.h lemon)
@@ -43,14 +33,8 @@ kde4_add_ui_files( lemon_SRCS
   ui/prefs_db.ui
   ui/pref_style.ui
   ui/pref_security.ui
-  ui/special_order.ui
-  ui/soselector.ui
-  ui/sostatus.ui
-  ui/resume.ui
-  ui/reservations.ui
   ui/checker.ui
-  ../squeeze/src/ui/editclient_widget.ui
-  )
+  ../common/ui/editclient_widget.ui )
 
 kde4_add_kcfg_files(lemon_SRCS settings.kcfgc )
 

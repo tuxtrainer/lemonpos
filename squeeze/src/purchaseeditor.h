@@ -1,23 +1,22 @@
-/***************************************************************************
- *   Copyright (C) 2007-2009 by Miguel Chavez Gamboa                       *
- *   miguel.chavez.gamboa@gmail.com                                        *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
-
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
- ***************************************************************************/
+/**************************************************************************
+*   Copyright © 2007-2010 by Miguel Chavez Gamboa                         *
+*   miguel@lemonpos.org                                                   *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
+***************************************************************************/
 #ifndef PURCHASEEDITOR_H
 #define PURCHASEEDITOR_H
 
@@ -31,8 +30,6 @@
 #include "ui_purchaseeditor.h"
 
 enum rType {estatusNormal=899, estatusMod=999};
-
-class MibitTip;
 
 class PurchaseEditorUI : public QFrame, public Ui::purchaseEditor
 {
@@ -49,7 +46,6 @@ class PurchaseEditor : public KDialog
     ~PurchaseEditor();
 
     qulonglong getCode()     { return ui->editCode->text().toULongLong(); };
-    QString    getCodeStr()  { return ui->editCode->text(); };
     QString getDescription() { return ui->editDesc->text(); };
     double  getPurchaseQty();
     int     getCategoryId();
@@ -68,7 +64,6 @@ class PurchaseEditor : public KDialog
     QHash<qulonglong, ProductInfo> getHash()    { return productsHash; };
     double  getTotalBuy()    { return totalBuy; };
     double  getItemCount()   { return itemCount; };
-    double  getTotalTaxes()  { return totalTaxes; };
 
     void    populateCategoriesCombo();
     void    populateMeasuresCombo();
@@ -96,8 +91,6 @@ class PurchaseEditor : public KDialog
 private slots:
     void    changePhoto();
     void    calculatePrice();
-    void    timerCheck();
-    void    justCheck();
     void    checkIfCodeExists();
     void    addItemToList();
     void    setupTable();
@@ -115,12 +108,8 @@ protected slots:
     bool productExists;
     double totalBuy;
     double itemCount;
-    double totalTaxes;
     QString gelem;
     QHash<qulonglong, ProductInfo> productsHash;
-    QString lastCode;
-
-    MibitTip *errorPanel;
 };
 
 #endif

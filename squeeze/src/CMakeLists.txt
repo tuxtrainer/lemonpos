@@ -3,13 +3,14 @@ set(squeeze_SRCS
    squeeze.cpp
    main.cpp
    squeezeview.cpp
+   clientsdelegate.cpp
    usersdelegate.cpp
    usereditor.cpp
-   clienteditor.cpp
    promoeditor.cpp
    producteditor.cpp
    purchaseeditor.cpp
    offersdelegate.cpp
+   providerseditor.cpp
    ../../src/inputdialog.cpp
    ../../src/loginwindow.cpp
    ../../src/misc.cpp
@@ -17,10 +18,10 @@ set(squeeze_SRCS
    ../../src/sha1.cc
    ../../src/productdelegate.cpp
    ../../dataAccess/azahar.cpp
+   ../../common/clienteditor.cpp
    ../../mibitWidgets/mibitfloatpanel.cpp
    ../../mibitWidgets/mibitlineedit.cpp
    ../../mibitWidgets/mibittip.cpp
-   ../../mibitWidgets/mibitnotifier.cpp
    ../../printing/print-dev.cpp
    ../../printing/print-cups.cpp
  )
@@ -31,10 +32,11 @@ kde4_add_ui_files( squeeze_SRCS
   ui/prefs_db.ui
   ui/pref_printers.ui
   ui/edituser_widget.ui
-  ui/editclient_widget.ui
   ui/editpromo_widget.ui
   ui/producteditor.ui
   ui/purchaseeditor.ui
+  ui/providerseditor.ui
+  ../../common/ui/editclient_widget.ui
   )
 
 

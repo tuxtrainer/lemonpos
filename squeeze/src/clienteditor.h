@@ -1,23 +1,22 @@
-/***************************************************************************
- *   Copyright (C) 2007-2009 by Miguel Chavez Gamboa                       *
- *   miguel.chavez.gamboa@gmail.com                                        *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
-
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
- ***************************************************************************/
+/**************************************************************************
+*   Copyright © 2007-2010 by Miguel Chavez Gamboa                         *
+*   miguel@lemonpos.org                                                   *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
+**************************************************************************/
 #ifndef CLIENTEDITOR_H
 #define CLIENTEDITOR_H
 
@@ -38,7 +37,6 @@ class ClientEditor : public KDialog
   public:
     ClientEditor( QWidget *parent=0 );
     ~ClientEditor();
-    void setCode(QString code) { ui->editClientCode->setText(code); };
     void setName(QString name) { ui->editClientName->setText(name); };
     void setAddress(QString address) { ui->editClientAddress->setText(address); } ;
     void setPhone(QString phone) { ui->editClientPhone->setText(phone); };
@@ -49,7 +47,6 @@ class ClientEditor : public KDialog
     void setId(long int id) { clientId = id; };
     void setSinceDate(QDate date) { ui->sinceDatePicker->setDate(date); }
 
-    QString getCode(){ return ui->editClientCode->text();};
     QString getName(){ return ui->editClientName->text();};
     QString getAddress(){ return ui->editClientAddress->toPlainText();};
     QString getPhone(){ return ui->editClientPhone->text();};
@@ -63,7 +60,6 @@ class ClientEditor : public KDialog
   private slots:
     void changePhoto();
     void checkName();
-    void checkNameDelayed();
 
 
   private:

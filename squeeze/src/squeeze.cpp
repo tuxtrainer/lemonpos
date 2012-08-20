@@ -1,22 +1,22 @@
 /**************************************************************************
- *   Copyright © 2007-2011 by Miguel Chavez Gamboa                         *
- *   miguel@lemonpos.org                                                   *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
- ***************************************************************************/
+*   Copyright © 2007-2010 by Miguel Chavez Gamboa                         *
+*   miguel@lemonpos.org                                                   *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
+**************************************************************************/
 
 #include "squeeze.h"
 #include "squeezeview.h"
@@ -92,7 +92,7 @@ squeeze::squeeze()
     timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(fixGeom()));
     timer->setInterval(5000);
-    //timer->start();
+    timer->start();
     
 
     loadStyle();
@@ -103,7 +103,6 @@ squeeze::~squeeze()
     delete m_printer;
 }
 
-//NOTE: There is a problem with taskbar panel applets on the desktop (plasma widgets), the 145 pixels is a simple qty that works for me.
 void squeeze::fixGeom()
 {
   //qDebug()<<"Window Size:"<<geometry()<<"desktop size:"<<QApplication::desktop()->screenGeometry(this);
@@ -182,6 +181,7 @@ void squeeze::enableUI()
     action->setEnabled(true);
     //action = actionCollection()->action("checkOut");
     //action->setEnabled(true);
+
     action = actionCollection()->action("reports");
     action->setEnabled(true);
     action = actionCollection()->action("quickViewPlots");
@@ -190,26 +190,18 @@ void squeeze::enableUI()
     action->setEnabled(true);
     action = actionCollection()->action("stockCorrection");
     action->setEnabled(true);
-    action = actionCollection()->action("viewLog");
+    action = actionCollection()->action( "providersBrowse" );
     action->setEnabled(true);
-    action = actionCollection()->action("randomMsgsBrowse");
+
+    action = actionCollection()->action("closeStocktake");
     action->setEnabled(true);
-    action = actionCollection()->action("showSpecialOrders");
+    action = actionCollection()->action("printStocktake");
     action->setEnabled(true);
-    action = actionCollection()->action("printSoldOut");
+    action = actionCollection()->action("editStocktake");
     action->setEnabled(true);
-    action = actionCollection()->action("printLowStock");
+    action = actionCollection()->action("startStocktake");
     action->setEnabled(true);
-    action = actionCollection()->action("printEndOfMonth");
-    action->setEnabled(true);
-    action = actionCollection()->action("printEndOfDayGral");
-    action->setEnabled(true);
-    action = actionCollection()->action("printEndOfDay");
-    action->setEnabled(true);
-    action = actionCollection()->action("currenciesBrowse");
-    action->setEnabled(true);
-    action = actionCollection()->action("reservationsBrowse");
-    action->setEnabled(true);
+
   }
   qDebug()<<"Enabling others..";
   action = actionCollection()->action("usersBrowse");
@@ -250,27 +242,19 @@ void squeeze::disableUI()
   action->setDisabled(true);
   action = actionCollection()->action("stockCorrection");
   action->setDisabled(true);
-  action = actionCollection()->action("viewLog");
+  action = actionCollection()->action( "providersBrowse" );
   action->setDisabled(true);
-  action = actionCollection()->action("randomMsgsBrowse");
+
+  action = actionCollection()->action("closeStocktake");
   action->setDisabled(true);
-  action = actionCollection()->action("showSpecialOrders");
+  action = actionCollection()->action("printStocktake");
   action->setDisabled(true);
-  action = actionCollection()->action("printSoldOut");
+  action = actionCollection()->action("editStocktake");
   action->setDisabled(true);
-  action = actionCollection()->action("printLowStock");
+  action = actionCollection()->action("startStocktake");
   action->setDisabled(true);
-  action = actionCollection()->action("printEndOfMonth");
-  action->setDisabled(true);
-  action = actionCollection()->action("printEndOfDayGral");
-  action->setDisabled(true);
-  action = actionCollection()->action("printEndOfDay");
-  action->setDisabled(true);
-  action = actionCollection()->action("currenciesBrowse");
-  action->setDisabled(true);
-  action = actionCollection()->action("reservationsBrowse");
-  action->setDisabled(true);
-  
+
+
 }
 
 void squeeze::setupActions()
@@ -374,7 +358,23 @@ void squeeze::setupActions()
     action->setIcon(KIcon("lemon-reports"));
     action->setShortcut(Qt::Key_F6);
     connect(action, SIGNAL(triggered(bool)),m_view, SLOT(printEndOfDay()));
+
+    QAction* stocktakesAction =  actionCollection()->addAction( "stocktakes" );
+    stocktakesAction->setText(i18n("Stocktakes"));
+    stocktakesAction->setIcon(KIcon("lemon-stocktakes"));
     
+    QAction* editStocktakeAction =  actionCollection()->addAction( "editStocktake" );
+    editStocktakeAction->setText(i18n("Edit stocktake"));
+    editStocktakeAction->setIcon(KIcon("lemin-editstocktake"));
+    editStocktakeAction->setShortcut(Qt::ALT+Qt::Key_E);
+    connect(editStocktakeAction, SIGNAL(triggered(bool)),m_view, SLOT(editStocktake()));
+
+    action = actionCollection()->addAction( "reservationsBrowse" );
+    action->setText(i18n("View Reservations"));
+    action->setIcon(KIcon("lemon-box"));
+    action->setShortcut(Qt::ALT+Qt::Key_R);
+    connect(action, SIGNAL(triggered(bool)),m_view, SLOT(showReservations()));
+
     action = actionCollection()->addAction( "printEndOfDayGral" );
     action->setText(i18n("Print General end of day report"));
     action->setIcon(KIcon("lemon-reports"));
@@ -417,17 +417,35 @@ void squeeze::setupActions()
     action->setShortcut(Qt::CTRL+Qt::Key_G);
     connect(action, SIGNAL(triggered(bool)),m_view, SLOT(showLogs()));
 
-    action = actionCollection()->addAction( "currenciesBrowse" );
-    action->setText(i18n("View Currencies"));
-    action->setIcon(KIcon("lemon-money"));
-    action->setShortcut(Qt::ALT+Qt::Key_C);
-    connect(action, SIGNAL(triggered(bool)),m_view, SLOT(showCurrencies()));
+    action = actionCollection()->addAction( "providersBrowse" );
+    action->setText(i18n("Providers"));
+    action->setIcon(KIcon("lemon-user"));
+    action->setShortcut(Qt::CTRL+Qt::Key_R);
+    connect(action, SIGNAL(triggered(bool)),m_view, SLOT(showProviders()));
 
-    action = actionCollection()->addAction( "reservationsBrowse" );
-    action->setText(i18n("View Reservations"));
-    action->setIcon(KIcon("lemon-box"));
-    action->setShortcut(Qt::ALT+Qt::Key_R);
-    connect(action, SIGNAL(triggered(bool)),m_view, SLOT(showReservations()));
+    action = actionCollection()->addAction( "closeStocktake" );
+    action->setText(i18n("Close stocktake"));
+    action->setIcon(KIcon("lemon-closestocktake"));
+    action->setShortcut(Qt::ALT+Qt::Key_C);
+    connect(action, SIGNAL(triggered(bool)),m_view, SLOT(closeStocktake()));
+
+    action = actionCollection()->addAction( "startStocktake" );
+    action->setText(i18n("Start stocktake"));
+    action->setIcon(KIcon("lemon-startstocktake"));
+    action->setShortcut(Qt::ALT+Qt::Key_S);
+    connect(action, SIGNAL(triggered(bool)),m_view, SLOT(startStocktake()));
+
+    action = actionCollection()->addAction( "editStocktake" );
+    action->setText(i18n("Edit stocktake"));
+    action->setIcon(KIcon("lemon-editstocktake"));
+    action->setShortcut(Qt::ALT+Qt::Key_E);
+    connect(action, SIGNAL(triggered(bool)),m_view, SLOT(editStocktake()));
+
+    action = actionCollection()->addAction( "printStocktake" );
+    action->setText(i18n("Print stocktake"));
+    action->setIcon(KIcon("lemon-printstocktake"));
+    action->setShortcut(Qt::ALT+Qt::Key_P);
+    connect(action, SIGNAL(triggered(bool)),m_view, SLOT(printStocktake()));
 
 }
 

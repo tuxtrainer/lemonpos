@@ -36,7 +36,7 @@ function highlight(el,endcolor,duration) {
 </head>
 <body>
 <div id="wrapper">
-<!--<div id="minHeight"></div>-->
+<div id="minHeight"></div>
 <div id="outer">
 <div id="inner">
 <div id="right">
@@ -46,14 +46,12 @@ function highlight(el,endcolor,duration) {
 <!-- download -->
 <h2>Get it now!</h2>
 <div id="getitnow"><a name="download" href="[(base_url)]download">Download</a></div>
-<!--<h2>News:</h2>
-[[Ditto? &startID=`2` &summarize=`2` &total=`20` &commentschunk=`Comments` &tpl=`nl_sidebar` &showarch=`0` &truncLen=`100` &truncSplit=`0`]]-->
+<h2>News:</h2>
+[[Ditto? &startID=`2` &summarize=`2` &total=`20` &commentschunk=`Comments` &tpl=`nl_sidebar` &showarch=`0` &truncLen=`100` &truncSplit=`0`]]
 <div id="recentdocsctnr">
 <h2>Most Recent:</h2>
 <a name="recentdocs"></a>[[ListIndexer?LIn_root=0]] </div>
 </div>
-<br><center>
-<a href="http://sourceforge.net/projects/lemonpos"><img src="http://sflogo.sourceforge.net/sflogo.php?group_id=209899&amp;type=13" width="120" height="30" alt="Get Lemon Pos at SourceForge.net. Fast, secure and Free Open Source software downloads" /></a></center>
 <!-- close #sidebar -->
 </div>
 <!-- end right inner-->
@@ -65,7 +63,7 @@ function highlight(el,endcolor,duration) {
 <base href="[(site_url)]" />
 [[Breadcrumbs]]
 <div class="post">
-<!-- <h2>[*longtitle*]</h2> -->
+<h2>[*longtitle*]</h2>
 [*#content*] </div>
 <!-- close .post (main column content) -->
 </div>
@@ -76,6 +74,7 @@ function highlight(el,endcolor,duration) {
 <!-- end left -->
 </div>
 <!-- end inner -->
+<div id="clearfooter"></div>
 <div id="header">
 <h1><a id="logo" href="[~[(site_start)]~]" title="[(site_name)]">[(site_name)]</a></h1>
 <div id="search">[!AjaxSearch? ajaxSearch=`1` &AS_landing=`8` &moreResultsPage=`8` &showMoreResults=`1` &addJscript=`0` &extract=`0` &AS_showResults=`0`!]</div>
@@ -84,7 +83,6 @@ function highlight(el,endcolor,duration) {
 </div>
 <!-- end header -->
 <br style="clear:both;height:0;font-size: 1px" />
-<div id="clearfooter"></div>
 <div id="footer">
 {{lemonfooter}}
 </div>
@@ -93,29 +91,5 @@ function highlight(el,endcolor,duration) {
 <!-- end outer div -->
 </div>
 <!-- end wrapper -->
-
-<script type="text/javascript">
-var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
-document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
-</script>
-<script type="text/javascript">
-try{
-  var pageTracker = _gat._getTracker("UA-7037042-1");
-  pageTracker._trackPageview();
-} catch(err) {}
-</script>
-
-<!-- Piwik -->
-<script type="text/javascript">
-var pkBaseURL = (("https:" == document.location.protocol) ? "https://sourceforge.net/apps/piwik/lemonpos/" : "http://sourceforge.net/apps/piwik/lemonpos/");
-document.write(unescape("%3Cscript src='" + pkBaseURL + "piwik.js' type='text/javascript'%3E%3C/script%3E"));
-</script><script type="text/javascript">
-try {
-  var piwikTracker = Piwik.getTracker(pkBaseURL + "piwik.php", 1);
-  piwikTracker.trackPageView();
-  piwikTracker.enableLinkTracking();
-} catch( err ) {}
-</script><noscript><p><img src="http://sourceforge.net/apps/piwik/lemonpos/piwik.php?idsite=1" style="border:0" alt=""/></p></noscript>
-<!-- End Piwik Tag -->
 </body>
 </html>

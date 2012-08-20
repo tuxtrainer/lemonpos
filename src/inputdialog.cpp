@@ -1,25 +1,28 @@
 /**************************************************************************
- *   Copyright © 2007-2011 by Miguel Chavez Gamboa                         *
- *   miguel@lemonpos.org                                                   *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
- ***************************************************************************/
+*   Copyright © 2007-2010 by Miguel Chavez Gamboa                         *
+*   miguel@lemonpos.org                                                   *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
+***************************************************************************/
 
 #include "inputdialog.h"
 #include "settings.h"
+
+#include "../dataAccess/azahar.h"
+#include "../../common/clienteditor.h"
 
 #include <QtGui>
 #include <kiconloader.h>
@@ -42,6 +45,8 @@ InputDialog::InputDialog(QWidget *parent, bool integer, DialogType type, QString
   gridLayout    = new QGridLayout();
   lPixmap       = new QLabel(this);
 
+
+  comboClients = NULL;
   // Icons for each type
   if (type == dialogMeasures) lPixmap->setPixmap(DesktopIcon("kruler", 48));
   else if (type == dialogMoney) lPixmap->setPixmap(DesktopIcon("lemon-money", 48));
@@ -51,7 +56,7 @@ InputDialog::InputDialog(QWidget *parent, bool integer, DialogType type, QString
   else if (type == dialogStockCorrection) lPixmap->setPixmap(DesktopIcon("squeeze-stock-correction", 48));
   else if (type == dialogTerminalNum) lPixmap->setPixmap(DesktopIcon("lemon-money", 48)); //FIXME: add an icon
   else if (type == dialogTicketMsg)   lPixmap->setPixmap(DesktopIcon("lemon-ticket", 48));
-  else if (type == dialogCurrency) lPixmap->setPixmap(DesktopIcon("lemon-money", 48));
+  else if (type == dialogTicketInfo)   lPixmap->setPixmap(DesktopIcon("lemon-ticket-info", 48));
 
 
   //labels
@@ -65,37 +70,31 @@ InputDialog::InputDialog(QWidget *parent, bool integer, DialogType type, QString
   productCodeEdit = new KLineEdit(this);
   reasonEdit = new KLineEdit(this);
   lineEdit = new KLineEdit(this);
-  productCodeLabel = new QLabel(i18n("Product Code:"), this);
+  productCodeLabel = new QLabel("Product Code:", this);
 
-  ///TODO: fix this mess! the if for the dialogtype to assign labels
-  
-  //switch (type) {
-  //    case dialogTicketMsg:
-  //        break;
-  //    case dialogStockCorrection:
-  //        break;
-  //    case 
-  //}
   
   if (type == dialogTicketMsg) qLabel = new QLabel(i18n("Month or Season:"));
   else if (type == dialogStockCorrection) qLabel = new QLabel(i18n("New Stock Qty:"));
-  else if (type == dialogCurrency) qLabel = new QLabel(i18n("New currency factor:"));
   else qLabel = new QLabel(i18n("Amount:"));
 
   if (type == dialogTicketMsg) reasonLabel = new QLabel(i18n("New Message:"), this);
-  else if (type == dialogCurrency) reasonLabel = new QLabel(i18n("New Currency Name:"), this);
+  else if (type == dialogTicketInfo) reasonLabel = new QLabel(i18n("Infotext:"), this);
   else reasonLabel = new QLabel(i18n("Reason:"), this);
 
   if (type == dialogTicket || type == dialogSpecialOrder) qLabel->setText(i18n("Ticket #:"));
-
 
   //layout
   gridLayout->addWidget(productCodeLabel, 0,0,0);//1,1);
   gridLayout->addWidget(productCodeEdit, 0,1,0);//1,1);
   gridLayout->addWidget(reasonLabel, 1,0,0);//1,1);
-  gridLayout->addWidget(reasonEdit, 1,1,0);//1,1);
+  if (type == dialogSerialNr) {
+    gridLayout->addWidget(reasonEdit, 2,1,0);//1,1);
+    gridLayout->addWidget(lineEdit, 1,1,0);//1,1);
+  } else {
+    gridLayout->addWidget(reasonEdit, 1,1,0);//1,1);
+    gridLayout->addWidget(lineEdit, 2,1,0);//1,1);
+    }
   gridLayout->addWidget(qLabel, 2,0,0);//1,1);
-  gridLayout->addWidget(lineEdit, 2,1,0);//1,1);
   vLayout->addLayout(gridLayout);
 
  if (type == dialogCashOut) {
@@ -114,7 +113,7 @@ InputDialog::InputDialog(QWidget *parent, bool integer, DialogType type, QString
     reasonEdit->show();
   }
   else if (type == dialogTerminalNum) {
-   qLabel->setText(i18n("Terminal Number:"));
+   qLabel->setText("Terminal Number:");
    lineEdit->setClickMessage(i18n("Enter the terminal number here..."));
    productCodeEdit->hide();
    productCodeLabel->hide();
@@ -123,17 +122,33 @@ InputDialog::InputDialog(QWidget *parent, bool integer, DialogType type, QString
   }
   else if (type == dialogTicketMsg) {
    lineEdit->setClickMessage(i18n("Enter the number of the month or season here..."));
-   qDebug()<<"Setting month validator: min:"<<min<<" Max:"<<max;
    productCodeEdit->hide();
    productCodeLabel->hide();
   }
-  else if (type == dialogCurrency ) {
-      reasonEdit->setClickMessage(i18n("Enter the new currency name..."));
-      lineEdit->setClickMessage(i18n("Enter the new currency factor..."));
-      productCodeEdit->hide();
-      productCodeLabel->hide();
-      reasonLabel->show();
-      reasonEdit->show();
+  else if (type == dialogSerialNr) {
+   lineEdit->setClickMessage(i18n("Enter the serialnumber of the product here..."));
+   reasonLabel->setText(i18n("Client:"));
+   qLabel->setText(i18n("Serialnumber:"));
+   productCodeEdit->hide();
+   productCodeLabel->hide();
+   comboClients=new QComboBox(this);
+   gridLayout->addWidget(comboClients, 1,1,0);
+   comboClients->show();
+
+   reasonEdit->show();
+	
+  }
+  else if (type == dialogTicketInfo ) {
+   qLabel->hide();
+   productCodeLabel->hide();
+   lineEdit->hide();
+   productCodeEdit->hide();
+
+   reasonLabel->setText("Infotext:");
+   reasonEdit->show();
+   reasonLabel->show();
+
+   reasonEdit->setClickMessage(i18n("Enter the additional infotext for the ticket here..."));
   }
   else {
     reasonLabel->hide();
@@ -158,12 +173,10 @@ InputDialog::InputDialog(QWidget *parent, bool integer, DialogType type, QString
     // I NEED TO MAKE VALIDATION WITH REGULAR EXPRESSIONS TO SUPPORT LARGE NUMBERS if we need to do so.. ticket numbers larger
     // than 2,147,483,647. For now, its ok, its at the order of billions (thousand millions).
   } else {
-    //Some people complained about decimal places in numbers accepted by lemon. They wanted more decimal places!!!
-    QDoubleValidator *validator = new QDoubleValidator(min, max, 5,this);
+    QDoubleValidator *validator = new QDoubleValidator(min, max, 3,this);
     lineEdit->setValidator(validator);
   }
-  //NOTE: We remove the xX from the regexp for use as the separator between qtys and code. Only * can be used now, for Alphacode support
-  QRegExp regexpC("[1-9]+[0-9]*[//.]{0,1}[0-9]{0,2}[*]{0,1}[0-9]{0,13}");
+  QRegExp regexpC("[1-9]+[0-9]*[//.]{0,1}[0-9]{0,2}[xX]{0,1}[0-9]{0,13}");
   QRegExpValidator * validatorEAN13 = new QRegExpValidator(regexpC, this);
   productCodeEdit->setValidator(validatorEAN13);
 
@@ -172,11 +185,13 @@ InputDialog::InputDialog(QWidget *parent, bool integer, DialogType type, QString
   buttonAccept = new QPushButton(this);
   buttonAccept->setText(i18n("Ok"));
   buttonAccept->setDefault( true );
+  buttonsLayout->addWidget(buttonAccept);
+
   buttonCancel = new QPushButton(this);
   buttonCancel->setText(i18n("Cancel"));
   buttonCancel->setShortcut(Qt::Key_Escape);
   buttonsLayout->addWidget(buttonCancel);
-  buttonsLayout->addWidget(buttonAccept);
+
   if (type == dialogStockCorrection ) {
     buttonAccept->hide();
     buttonCancel->hide();
@@ -241,15 +256,21 @@ void InputDialog::acceptIt()
 
   ///Check dialog type for cases to valid
 
+  if (dialogType == dialogTicketInfo) { //needs 1 fields
+    if (!reasonEdit->text().isEmpty())
+      QDialog::accept();
+  }
   if (dialogType == dialogStockCorrection) { //needs 3 fields
     if (lineEdit->hasAcceptableInput() && !reasonEdit->text().isEmpty() && !productCodeEdit->text().isEmpty() )
       QDialog::accept();
-  }
-  else if (dialogType == dialogCashOut) { //needs 2 fields : amount & reason
-    if (lineEdit->hasAcceptableInput() && !reasonEdit->text().isEmpty()) {
+  } else if (dialogType == dialogSerialNr) { //needs 1 fields reason
+    if (!reasonEdit->text().isEmpty()) {
       QDialog::accept();
     }
-    else {
+  } else if (dialogType == dialogCashOut) { //needs 2 fields : amount & reason
+    if (lineEdit->hasAcceptableInput() && !reasonEdit->text().isEmpty()) {
+      QDialog::accept();
+    } else {
       //Not accepted by some of the two reasons
       if (!lineEdit->text().isEmpty() || lineEdit->hasAcceptableInput()) { //it contains something invalid
         if (lineEdit->text().toDouble() >= _max) {
@@ -258,14 +279,12 @@ void InputDialog::acceptIt()
         }
       }
     }
-  }
-  else if (dialogType == dialogTicketMsg) {
+  } else if (dialogType == dialogTicketMsg) {
     if (lineEdit->hasAcceptableInput() && !reasonEdit->text().isEmpty()) {
       //The user is responsible for the correct month/season number... depending on what is based.
       QDialog::accept();
     }
-  }
-  else { //Money-Measures-Ticket-TerminalNum needs only the amount/terminalNum...
+  } else { //Money-Measures-Ticket-TerminalNum needs only the amount/terminalNum...
     if (lineEdit->hasAcceptableInput())
       QDialog::accept();
   }
@@ -291,6 +310,7 @@ void InputDialog::setProductCodeReadOnly()
   productCodeEdit->setReadOnly(true);
   reasonEdit->setFocus();
 }
+
 
 #include "inputdialog.moc"
 

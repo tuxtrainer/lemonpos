@@ -8,9 +8,6 @@
     <entry name="SplitterSizes" type="IntList">
       <label>How the main window is divided.</label>
     </entry>
-    <entry name="GridSplitterSizes" type="IntList">
-      <label>How the grid/purchase-list is divided.</label>
-    </entry>
   </group>
   <group name="Store Preferences">
     <entry name="editStoreName" type="String">
@@ -39,18 +36,6 @@
     </entry>
   </group>
   <group name="General Preferences">
-    <entry name="groupUserIdAsCode" type="Bool">
-      <label>Use Code Input for Customer Identification.</label>
-      <default>0</default>
-    </entry>
-    <entry name="rb6Digits" type="Bool">
-        <label>Use 6 digits for customer id.</label>
-        <default>0</default>
-    </entry>
-    <entry name="rb12DigitsCustom" type="Bool">
-        <label>Use 12/13 Digits for customer id.</label>
-        <default>0</default>
-    </entry>
     <entry name="editTerminalNumber" type="Int">
       <label>POS Number</label>
       <default>1</default>
@@ -90,14 +75,6 @@
     <entry name="displayWarningOnLowCash" type="Bool">
       <label>Display Low Cash Warning</label>
       <default>true</default>
-    </entry>
-    <entry name="addTax" type="Bool">
-      <label>Add tax to prices. Tax is not included in price</label>
-      <default>true</default>
-    </entry>
-    <entry name="roundToUSStandard" type="Bool">
-        <label>Round to US Standard 5/4</label>
-        <default>0</default>
     </entry>
   </group>
   <group name="Database">
@@ -167,28 +144,16 @@
       <label>Print balances using ticket printer</label>
       <default>false</default>
     </entry>
-    <entry name="printZeroTicket" type="Bool">
-      <label>Print tickets with ZERO in the TOTAL</label>
-      <default>false</default>
-    </entry>
-    <entry name="printPackContents" type="Bool">
-      <label>Print Group/Pack Contents on tickets</label>
-      <default>true</default>
-    </entry>
-    <entry name="printSO" type="Bool">
-      <label>Print SpecialOrders Instructions</label>
-      <default>true</default>
-    </entry>
-    <entry name="printRandomMsg" type="Bool">
-      <label>Print Random Messages on tickets</label>
-      <default>true</default>
-    </entry>
     <entry name="printTicket" type="Bool">
       <label>Print Ticket (dou you have a ticket printer?)</label>
       <default>false</default>
     </entry>
     <entry name="printChangedDateTicket" type="Bool">
       <label>Print Date Changed Ticket</label>
+      <default>false</default>
+    </entry>
+    <entry name="printShowDialog" type="Bool">
+      <label>Show printers dialog</label>
       <default>false</default>
     </entry>
     <entry name="printerDevice" type="String">

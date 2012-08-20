@@ -1,6 +1,6 @@
 /**  Simple Style for Lemon (Default style).
- **  Miguel Chavez Gamboa 2007-2010
- **  miguel@lemonpos.org
+ **  Miguel Chavez Gamboa © 2007-2010. Licensed as GPL v2 or later.
+ **  miguel@lemonpos.org           
  **
  **  This style themes only certain objects, such as login&passowrd dialog some labels, and
  **  the tableview/listview. All other objects are left with the kde/qt theme used. In my case
@@ -25,14 +25,14 @@
 */
 
 LoginWindow#passwordDialog {
-   background-image: url([STYLE_PATH]passwordBackground_1366x768.png); /* choose resolution and provide the image */
+   background-image: url([STYLE_PATH]passwordBackground_wide.png); /* choose resolution and provide the image */
    background-position: top left;
    background-attachment: fixed;
    background-repeat:no-repeat;
 }
 
 LoginWindow#loginDialog {
-   background-image: url([STYLE_PATH]loginBackground_1366x768.png); /* choose resolution and provide the image */
+   background-image: url([STYLE_PATH]loginBackground_1280x800.png); /* choose resolution and provide the image */
    background-position: center center;
    background-attachment: fixed;
    background-repeat:no-repeat;
@@ -46,7 +46,7 @@ LoginWindow#passwordDialog > QLabel#labelCaption {
 }
 
 LoginWindow#loginDialog > QLabel#labelCaption {
-  color: white;
+  color: black; /*0.6 a3ff00;*/
   font-weight: bold;
   font-size:40px;
 }
@@ -58,19 +58,19 @@ LoginWindow#passwordDialog > QLabel#labelPrompt {
 }
 
 LoginWindow#loginDialog > QLabel#labelPrompt {
-  color: #fff500;
+  color: #fc7600; /*0.6 #e6ff00;*/
   font-weight: bold;
   font-size:18px;
 }
 
-QLabel#lblSaleTaxes, QLabel#lblSubtotal
+QLabel#lblSaleTaxes
 {
  color: darkGray;
  font-weight: bold;
  font-size:30px;
 }
 
-QLabel#lblSaleTaxesPre, QLabel#lblSubtotalPre
+QLabel#lblSaleTaxesPre
 {
  color: darkGray;
  font-weight: bold;
@@ -172,14 +172,6 @@ QLabel#lblNewStatus {
   color: red;
   font-size:14px;
   font-weight: bold;
-}
-
-/**  Client Discount **/
-QLabel#lblClientDiscount
-{
-  color: #0b69fd;
-  font-weight: bold;
-  font-size:15px;
 }
 
 /** Table **/

@@ -1,109 +1,100 @@
-/***************************************************************************
- *   Copyright (C) 2007-2009 by Miguel Chavez Gamboa                       *
- *   miguel.chavez.gamboa@gmail.com                                        *
- *   SHA code from kde kwallet                                             *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
- ***************************************************************************/
+/**************************************************************************
+*   Copyright © 2007-2010 by Miguel Chavez Gamboa                         *
+*   miguel@lemonpos.org                                                   *
+*   SHA code from kde kwallet                                             *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
+***************************************************************************/
 #include "hash.h"
 
 #include "sha1.h"
 #include <assert.h>
-
-#include <stdlib.h>
 
 #include <QString>
 #include <QByteArray>
 #include <QFile>
 #include <QTextStream>
 #include <QRegExp>
-#include <QTime> 
 
 //#include <iostream>
 
-QByteArray Hash::getCheapSalt()
-{
-    QString result="";
-    srand( QTime::currentTime().toString("hhmmsszzz").toUInt() );
-    
-    QRegExp rx("([\\w+]|[\\s*&*%*\\$*#*!*=*¡*\\(*\\)*\\?*\\¿*\\[*\\]*\\{*\\}*\\/*])");
-    int cont=0;
-    rx.setCaseSensitivity(Qt::CaseInsensitive);
-
-    while (cont<5) {
-      QString data( rand() );
-      //if ( rx.indexIn(data) !=-1 )
-      if (data.contains(rx)) {
-          result+=data;
-          cont++;
-        }
-      }
-
-        result.resize(5);
-        return result.toLocal8Bit();
-}
-
 QByteArray Hash::getSalt()
 {
-    QString result="";
-    QFile file("/dev/urandom");
-    //NOTE: At some point of kernel 2.6.32, /dev/random stop working!  :(
-    //      /dev/urandom is blocking if not enough entropy... so moving mouse or keyboard is needed. But
-    //      now with this issue (random failing), urandom seems to work fine and in my tests it has not been blocking.
+  QString result="";
+  QFile file("/dev/urandom");
+  //NOTE: At some point of kernel 2.6.32, /dev/random stop working!  :(
+  //      /dev/urandom is blocking if not enough entropy... so moving mouse or keyboard is needed. But
+  //      now with this issue (random failing), urandom seems to work fine and in my tests it has not been blocking.
+  /// MCH: March 28 2010.
   
-//     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-//         // In case /dev/random is a dead fish.
-//         if( !file.waitForReadyRead(100))  file.close();
-//     }
-// 
-//     if (!file.isOpen()) file.setFileName("/dev/urandom");
-//     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-//         // In case /dev/random is a dead fish.
-//         if( !file.waitForReadyRead(100))
-//             file.close();
-//     }
-// 
-//     if (!file.isOpen()) {
-//         // FIXME: There should be some warning that cheap salt is being used.
-//         qDebug() << "/dev/urandom not responding...  Using rand() to get the salt...";
-//         return getCheapSalt();
-//     }
-
-    file.open(QIODevice::ReadOnly | QIODevice::Text);
-    
-    QRegExp rx("[A-Za-z_0-9@#%&\\!\\$\\~\\^\\*]*"); 
-    int cont=0;
-    //rx.setCaseSensitivity(Qt::CaseInsensitive);
-      
+  //FIXME: Still some problems when obtaining the salt. some strage chars appearing... fix this regexp
+  QRegExp rx("([\\w+]|[\\s*&*%*\\$*#*!*=*¡*\\(*\\)*\\?*\\¿*\\[*\\]*\\{*\\}*\\/*])");
+  int cont=0;
+  rx.setCaseSensitivity(Qt::CaseInsensitive);
+  if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+  {
     QTextStream in(&file);
     while (cont<5) {
-        QString data = in.readLine(1);
-        if (!data.isNull() && data.contains(rx) && rx.matchedLength() > 0) {
-            int pos = rx.indexIn(data);
-            if (pos > -1) {
-                result+=data.at(pos);
-                cont++;
-            }
+      QString data = in.readLine(1);
+      //std::cout << data.data();
+      if (!data.isNull()) {
+        if (data.contains(rx))
+        {
+          int pos = rx.indexIn(data);
+          if (pos != -1) {
+            //the filtered chars
+            result+=data.at(pos);
+            cont++;
+          }
         }
+      }
     }
     file.close();
-
-    result.resize(5);
-    return result.toLocal8Bit();
+  } //else std::cout << "could not open /dev/urandom";
+  result.resize(5);
+  return result.toLocal8Bit();
 }
+
+// QByteArray Hash::getSalt()
+// {
+//   QString result="";
+//   QFile file("/dev/random");
+//   //FIXME: Still some problems when obtaining the salt. some strage chars appearing... fix this regexp
+//   QRegExp rx("([\\w+]|[\\s*&*%*\\$*#*!*=*¡*\\(*\\)*\\?*\\¿*\\[*\\]*\\{*\\}*\\/*])");
+//   int cont=0;
+//   rx.setCaseSensitivity(Qt::CaseInsensitive);
+//   if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+//   {
+//     QTextStream in(&file);
+//     while (cont<5) {
+//       QString data = in.readLine(1);
+//       if (!data.isNull()) {
+//         //if ( rx.indexIn(data) !=-1 )
+//         if (data.contains(rx))
+//         {
+//           result+=data;
+//           cont++;
+//         }
+//       }
+//     }
+//     file.close();
+//   }
+//   result.resize(5);
+//   return result.toLocal8Bit();
+// }
 
 
 //from Kwalletbackend.

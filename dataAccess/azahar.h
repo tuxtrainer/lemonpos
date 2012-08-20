@@ -1,22 +1,22 @@
-/***************************************************************************
- *   Copyright © 2007-2012 by Miguel Chavez Gamboa                         *
- *   miguel@lemonpos.org                                                   *
- *                                                                         *
- *   This program is free software; you can redistribute it and/or modify  *
- *   it under the terms of the GNU General Public License as published by  *
- *   the Free Software Foundation; either version 2 of the License, or     *
- *   (at your option) any later version.                                   *
- *                                                                         *
- *   This program is distributed in the hope that it will be useful,       *
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
- *   GNU General Public License for more details.                          *
- *                                                                         *
- *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
- ***************************************************************************/
+/**************************************************************************
+*   Copyright © 2007-2010 by Miguel Chavez Gamboa                         *
+*   miguel@lemonpos.org                                                   *
+*                                                                         *
+*   This program is free software; you can redistribute it and/or modify  *
+*   it under the terms of the GNU General Public License as published by  *
+*   the Free Software Foundation; either version 2 of the License, or     *
+*   (at your option) any later version.                                   *
+*                                                                         *
+*   This program is distributed in the hope that it will be useful,       *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+*   GNU General Public License for more details.                          *
+*                                                                         *
+*   You should have received a copy of the GNU General Public License     *
+*   along with this program; if not, write to the                         *
+*   Free Software Foundation, Inc.,                                       *
+*   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
+***************************************************************************/
 
 #ifndef AZAHAR_H
 #define AZAHAR_H
@@ -27,7 +27,6 @@
 #include "../src/structs.h"
 #include "../src/enums.h"
 
-enum AzaharRTypes {rtPercentage=1001, rtMoney=1002};
 
 class QString;
 
@@ -41,11 +40,12 @@ class QString;
 
 class Azahar : public QObject
 {
-  Q_OBJECT  //NOTE: This also gives the extra function of self destroying when parent is destroyed ? it has no parent
+  Q_OBJECT  
   private:
     QSqlDatabase db;
     QString errorStr;
     void setError(QString err);
+    void setErrorOut(QString file,int line,QString func,QString err);
     QString m_mainClient;
   public:
     Azahar(QWidget * parent = 0);
@@ -56,39 +56,42 @@ class Azahar : public QObject
     void setDatabase(const QSqlDatabase& database);
 
     // PRODUCTS
-    ProductInfo  getProductInfo(const QString &code, const bool &notConsiderDiscounts = false); //the 2nd parameter is to get the taxes for the group (not considering discounts)
+    // Si se introduce el alphacode, entonces tambien para buscar el producto por alphacode...
+    // En otros metodos diferentes a getProductInfo se usa el codigo como entero y no como alphacode.
+    QList<StocktakeInfo> getStockTake();
+    ProductInfo  getProductInfo(QString code);
+    ProductInfo  findProductInfo(QString code);
     qulonglong   getProductOfferCode(qulonglong code);
     qulonglong   getProductCode(QString text);
-    qulonglong   getProductCodeFromAlphacode(QString text);
+    qulonglong   getProductNextCode(QString text);
     QList<qulonglong> getProductsCode(QString regExpName);
     QStringList  getProductsList();
     bool         insertProduct(ProductInfo info);
+    bool 	 newStockTaking();
+    bool 	 closeStockTaking(QString takeid);
+    QString	 getLastStockTakingId();
+    bool 	 updateStockTaking(QString takeid,qlonglong code,qlonglong amount);
+    int		 getCountOpenStockTaking();
     bool         updateProduct(ProductInfo info, qulonglong oldcode);
     bool         decrementProductStock(qulonglong code, double qty, QDate date);
     bool         decrementGroupStock(qulonglong code, double qty, QDate date);
     bool         incrementGroupStock(qulonglong code, double qty);
     bool         incrementProductStock(qulonglong code, double qty);
     bool         deleteProduct(qulonglong code);
-    double       getProductDiscount(qulonglong code, bool isGroup=false); //returns the discount percentage!
+    double       getProductDiscount(qulonglong code);
     QList<pieProdInfo>  getTop5SoldProducts();
     double       getTopFiveMaximum();
     QList<pieProdInfo>  getAlmostSoldOutProducts(int min, int max);
     double       getAlmostSoldOutMaximum(int max);
     QList<ProductInfo>  getSoldOutProducts();
     QList<ProductInfo>  getLowStockProducts(double min);
-    QList<ProductInfo>  getAllProducts();
     double       getProductStockQty(qulonglong code);
     qulonglong   getLastProviderId(qulonglong code);
     bool         updateProductLastProviderId(qulonglong code, qulonglong provId);
-    QList<ProductInfo> getGroupProductsList(qulonglong id, bool notConsiderDiscounts = false);
-    /* DEPRECATED double       getGroupAverageTax(qulonglong id);
-       DEPRECATED double       getGroupTotalTax(qulonglong id); */
-    GroupInfo    getGroupPriceAndTax(ProductInfo pi);
+    QList<ProductInfo> getGroupProductsList(qulonglong id);
+    double       getGroupAverageTax(qulonglong id);
     QString      getProductGroupElementsStr(qulonglong id);
-    void         updateGroupPriceDrop(qulonglong code, double pd);
-    void         updateGroupElements(qulonglong code, QString elementsStr);
 
-    
     //PRODUCT STOCK CORRECTION
     bool         correctStock(qulonglong pcode, double oldStockQty, double newStockQty, const QString &reason );
 
@@ -98,7 +101,8 @@ class Azahar : public QObject
     qulonglong  getCategoryId(QString texto);
     QString     getCategoryStr(qulonglong id);
     bool        insertCategory(QString text);
-    bool        deleteCategory(qulonglong id);
+//    bool Azahar::deleteCategory(qulonglong id);
+    bool deleteCategory(qulonglong id);
 
     //MEASURES
     QStringList getMeasuresList();
@@ -127,12 +131,11 @@ class Azahar : public QObject
     bool         deleteUser(qulonglong id);
 
     //CLIENTS
-    bool         insertClient(ClientInfo info);
+    qlonglong    insertClient(ClientInfo info);
     bool         updateClient(ClientInfo info);
     bool         incrementClientPoints(qulonglong id, qulonglong points);
     bool         decrementClientPoints(qulonglong id, qulonglong points);
     ClientInfo   getClientInfo(qulonglong clientId);
-    ClientInfo   getClientInfo(QString clientCode);
     QHash<QString, ClientInfo> getClientsHash();
     QStringList  getClientsList();
     QString      getMainClient();
@@ -143,10 +146,8 @@ class Azahar : public QObject
     TransactionInfo getTransactionInfo(qulonglong id);
     qulonglong  insertTransaction(TransactionInfo info);
     //QList<ProductInfo>     getTransactionGroupsList(qulonglong tid);
-    QList<TransactionInfo> getDayTransactions(int terminal);
-    QList<TransactionInfo> getDayTransactions();
-    AmountAndProfitInfo    getDaySalesAndProfit(int terminal);
-    AmountAndProfitInfo    getDaySalesAndProfit();
+    QList<TransactionInfo> getDayTransactions(int terminal=-1);
+    AmountAndProfitInfo    getDaySalesAndProfit(int terminal=-1);
     QList<TransactionInfo> getMonthTransactionsForPie();
     QList<TransactionInfo> getMonthTransactions();
     AmountAndProfitInfo    getMonthSalesAndProfit();
@@ -159,8 +160,6 @@ class Azahar : public QObject
     QList<TransactionInfo> getLastTransactions(int pageNumber=1,int numItems=20,QDate beforeDate=QDate::currentDate ());
     QList<TransactionInfo> getTransactionsPerDay(int pageNumber=1,int numItems=20,QDate beforeDate=QDate::currentDate ());
     qulonglong  getEmptyTransactionId();
-    double      getTransactionDiscMoney(qulonglong id);
-    bool        setTransactionStatus(qulonglong trId, TransactionState state);
     
     // TRANSACTIONITEMS
     bool        insertTransactionItem(TransactionItemInfo info);
@@ -178,15 +177,37 @@ class Azahar : public QObject
     QList<CashFlowInfo> getCashFlowInfoList(const QList<qulonglong> &idList);
     QList<CashFlowInfo> getCashFlowInfoList(const QDateTime &start, const QDateTime &end);
 
-    //CardTypes
-    QString     getCardTypeStr(qulonglong type);
-    qulonglong  getCardTypeId(QString type);
-    QStringList getCardTypes();
-    QHash<QString,int> getCardTypesHash();
-    
     //PayTypes
     QString     getPayTypeStr(qulonglong type);
     qulonglong  getPayTypeId(QString type);
+
+    //TAX MODELS
+    double      getTotalTaxPercent(const QString& elementsid);
+    TaxModelInfo getTaxModelInfo(const qulonglong id);
+    QStringList getTaxModelsList();
+    QString     getTaxModelElements(const qulonglong id);
+    QString     getTaxModelName(const qulonglong &id);
+    qulonglong  getTaxModelId(const QString &text);
+
+    //PROVIDERS
+    QHash<QString, qulonglong> getProvidersHash();
+    QStringList  getProvidersList();
+    QString      getProviderName(const qulonglong &id);
+    qulonglong   getProviderId(const QString &name);
+    ProviderInfo getProviderInfo(qulonglong id);
+    bool         insertProvider(ProviderInfo info);
+    bool         updateProvider(ProviderInfo info);
+    bool         deleteProvider(qulonglong pid);
+    bool         deleteProductProvider(qulonglong id);
+    bool         providerHasProduct(qulonglong pid, qulonglong code);
+    bool         addProductToProvider(ProductProviderInfo info);
+
+    //BRANDS
+    //QHash<qulonglong, QString> getBrandsHash();
+    QStringList getBrandsList();
+    QString     getBrandName(const qulonglong &id);
+    qulonglong  getBrandId(const QString &name);
+    qulonglong  insertBrand(const QString &name);
 
     //LOGS
     bool        insertLog(const qulonglong &userid, const QDate &date, const QTime &time, const QString actionStr);
@@ -203,7 +224,6 @@ class Azahar : public QObject
     bool        getConfigSmallPrint();
     bool        getConfigLogoOnTop();
     bool        getConfigUseCUPS();
-    QString     getConfigDbVersion(); //NEW: Aug 31 2011.
     void        setConfigStoreLogo(const QByteArray &baPhoto);
     void        setConfigStoreName(const QString &str);
     void        setConfigStoreAddress(const QString &str);
@@ -217,7 +237,6 @@ class Azahar : public QObject
     void                    soTicketSetStatus(qulonglong ticketId, int status);
     qulonglong              insertSpecialOrder(SpecialOrderInfo info);
     bool                    updateSpecialOrder(SpecialOrderInfo info);
-    bool                    decrementSOStock(qulonglong id, double qty, QDate date);
     bool                    deleteSpecialOrder(qulonglong id);
     SpecialOrderInfo        getSpecialOrderInfo(qulonglong id);
     QList<ProductInfo>      getSpecialOrderProductsList(qulonglong id);
@@ -229,43 +248,13 @@ class Azahar : public QObject
     QStringList             getStatusList();
     QStringList             getStatusListExceptDelivered();
     int                     getStatusId(QString texto);
-    double                  getSpecialOrderAverageTax(qulonglong id, AzaharRTypes returnType= rtPercentage);
-    double                  getSpecialOrderAverageDiscount(qulonglong id);
-    int                     getSpecialOrderNonDiscountables(qulonglong id);
-
-    //Reservations
-    qulonglong              insertReservation(ReservationInfo info);
-    bool                    setReservationStatus(qulonglong id, reservationState state);
-    double                  getReservationTotalAmount(qulonglong id);
-    double                  getReservationPayment(qulonglong id);
-    bool                    setTransactionReservationStatus(const qulonglong &trId);
-    ReservationInfo         getReservationInfo(const qulonglong &id);
-    ReservationInfo         getReservationInfoFromTr(const qulonglong &trId);
-    bool                    addReservationPayment( const qulonglong &rId, const double &amount );
-    QList<ReservationPayment> getReservationPayments( const qulonglong &rId );
-    bool                    setReservationPayment(const qulonglong &id,  const double &amount );
+    double                  getSpecialOrderAverageTax(qulonglong id);
 
     //Random Msgs
     QString   getRandomMessage(QList<qulonglong> &excluded, const int &season);
               //NOTE:We will modify excluded list.. SO do not make const the List.
     void      randomMsgIncrementCount(qulonglong id);
     bool      insertRandomMessage(const QString &msg, const int &season);
-
-    //Currencies
-    CurrencyInfo getCurrency(const qulonglong &id);
-    CurrencyInfo getCurrency(const QString &name);
-    QList<CurrencyInfo> getCurrencyList();
-    bool     insertCurrency(const QString name, const double &factor);
-    bool     deleteCurrency(const qulonglong &cid);
-
-    //Credits and its history
-    CreditInfo        getCreditInfo(const qulonglong &id);
-    CreditInfo        getCreditInfoForClient(const qulonglong &clientId, const bool &create=true); //by default it creates a new credit record if no one found for the customer.
-    QList<CreditHistoryInfo> getCreditHistoryForClient(const qulonglong &clientId, const int &lastDays=0);
-    
-    qulonglong        insertCredit(const CreditInfo &info);
-    bool              updateCredit(const CreditInfo &info);
-    qulonglong        insertCreditHistory(const CreditHistoryInfo &info);
 
 };
 

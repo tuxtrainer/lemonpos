@@ -1,5 +1,5 @@
 <!DOCTYPE kpartgui SYSTEM "kpartgui.dtd">
-<kpartgui name="squeeze" version="10">
+<kpartgui name="squeeze" version="12">
 <ToolBar name="aGeneral">
   <text>General ToolBar</text>
   <Action name="quickViewPlots" />
@@ -10,8 +10,8 @@
   <Action name="categoriesBrowse" />
   <Action name="clientsBrowse" />
   <Action name="randomMsgsBrowse" />
+  <Action name="providersBrowse" />
   <Action name="viewLog" />
-  <Action name="currenciesBrowse" />
   <Action name="reservationsBrowse" />
 </ToolBar>
 
@@ -22,9 +22,9 @@
  <Action name="stockCorrection" />
 </ToolBar>
 
-<ToolBar name="cReports">
-  <text>Reports</text>
-  <Action name="reports" />
+<ToolBar name="cStocktakes">
+  <text>Stocktakes</text>
+  <Action name="stocktakes" />
 </ToolBar>
 
 <ToolBar name="dOther">
@@ -43,9 +43,9 @@
       <Action name="measuresBrowse" />
       <Action name="categoriesBrowse" />
       <Action name="clientsBrowse" />
+      <Action name="providersBrowse" />
       <Action name="randomMsgsBrowse" />
       <Action name="reservationsBrowse" />
-      <Action name="currenciesBrowse" />
       <Action name="viewLog" />
     </Menu>
     <Menu name="Reports"><text>&amp;Reports</text>
@@ -59,6 +59,12 @@
       <Action name="printEndOfMonth" />
       <Action name="printLowStock" />
       <Action name="printSoldOut" />
+    </Menu>
+    <Menu name="Stocktakes"><text>&amp;Stocktakes</text>
+      <Action name="startStocktake" />
+      <Action name="editStocktake" />
+      <Action name="printStocktake" />
+      <Action name="closeStocktake" />
     </Menu>
 </MenuBar>
 
